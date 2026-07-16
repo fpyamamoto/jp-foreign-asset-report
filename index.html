@@ -448,8 +448,7 @@ html[lang="en"] .seal-in small{font-size:6.5px;letter-spacing:.1em}
       </div>
       <div class="step-bd">
         <div class="field">
-          <span class="lab" data-t="s1.q"></span>
-          <div class="choices" id="residency"></div>
+          <div class="wiz" id="residency"></div>
           <p class="help" data-t="s1.help"></p>
         </div>
         <details class="disc" id="disc-exempt">
@@ -576,8 +575,8 @@ html[lang="en"] .seal-in small{font-size:6.5px;letter-spacing:.1em}
    1. DATA — 制度データ。ロジックから分離。改正時はここだけ差し替える。
    ============================================================================ */
 const RULES = {
-  updated: "2026-07-15",
-  basis: { taxanswer: "令和7年6月1日現在法令等", faq: "令和5年4月版" },
+  updated: "2026-07-16",
+  basis: { taxanswer: "令和7年6月1日現在法令等", faq: "令和7年6月版" },
   threshold: 50000000,          // 5,000万円「超」（以上ではない）
   // [FIX 5] 年は固定リストではなく現在の年から自動生成する。毎年の手当てが不要。
   yearFloor: 2022,
@@ -587,7 +586,7 @@ const RULES = {
   currencies: ["JPY","USD","EUR","GBP","AUD","NZD","CAD","CHF","SGD","HKD","CNY","KRW","TWD","THB","MYR","PHP","IDR","VND","INR","KHR","LAK","BDT","AED","BRL","MXN","ZAR"],
   sources: [
     { key: "src.nta7456", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/hotei/7456.htm" },
-    { key: "src.faq",     url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/pdf/kokugai_faq_r5-1.pdf" },
+    { key: "src.faq",     url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/pdf/kokugai_faq_r6.pdf" },
     { key: "src.pamph",   url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/index.htm" },
     { key: "src.form",    url: "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/hotei/2506.htm" },
     { key: "src.etax",    url: "https://www.e-tax.nta.go.jp" }
@@ -596,9 +595,37 @@ const RULES = {
   refs: [
     { key: "ref.murc", url: "https://www.murc-kawasesouba.jp/fx/past_3month.php" }
   ],
+  /* 居住者区分のウィザード。所得税法2①三・四の定義をそのまま設問に分解したもの。
+     利用者に「非永住者」という語を理解させずに正しく判定させるのが狙い。
+     日本国籍があれば非永住者になり得ないので、2問で終わる。
+       居住者   ＝ 国内に住所を有し、又は現在まで引き続いて1年以上居所を有する個人
+       非永住者 ＝ 居住者のうち、日本国籍を有しておらず、かつ
+                   過去10年以内に国内に住所又は居所を有していた期間の合計が5年以下の個人
+       非居住者 ＝ 居住者以外の個人 */
+  residency: {
+    questions: [
+      { id: "live", opts: ["yes", "no"] },
+      { id: "jpn",  opts: ["yes", "no"], when: a => a.live === "yes" },
+      { id: "five", opts: ["yes", "no"], when: a => a.live === "yes" && a.jpn === "no" }
+    ],
+    resolve: a => {
+      if (!a.live) return null;
+      if (a.live === "no") return "nonres";      // 居住者以外
+      if (!a.jpn) return null;
+      if (a.jpn === "yes") return "resident";    // 日本国籍あり → 非永住者になり得ない
+      if (!a.five) return null;
+      return a.five === "yes" ? "resident" : "nonperm";
+    }
+  },
+  // 旧い共有URL（r が文字列だった頃）を新しい設問形式へ読み替える
+  residencyLegacy: {
+    resident: { live: "yes", jpn: "yes" },
+    nonperm:  { live: "yes", jpn: "no", five: "no" },
+    nonres:   { live: "no" }
+  },
   /* 財産の区分（名前のついた7区分＋受け皿）と所在判定ウィザード。
      verdict = "foreign" | "domestic" | null(未回答)
-     根拠：国外送金等調書法5③／令10①②／規12③④／相続税法10①②／FAQ Q6・Q22・Q23・Q36 */
+     根拠：国外送金等調書法5③／令10①②／規12③④／相続税法10①②／FAQ 問6・問22・問23・問36 */
   categories: {
     realestate: {
       questions: [{ id: "loc", opts: ["jp", "fr"] }],
@@ -609,7 +636,7 @@ const RULES = {
       resolve: a => a.branch ? (a.branch === "fr" ? "foreign" : "domestic") : null
     },
     securities: {
-      // FAQ Q23：口座で管理していれば口座の所在が優先。口座がなければ発行体基準。
+      // FAQ 問23：口座で管理していれば口座の所在が優先。口座がなければ発行体基準。
       questions: [
         { id: "issuer", opts: ["jpco", "frco", "jpbond", "frbond"] },
         { id: "account", opts: ["jpacc", "fracc", "none"] }
@@ -688,14 +715,24 @@ ja: {
   "act.copyfail": "コピーできませんでした。アドレスバーのURLをそのままコピーしてください。",
 
   "s1.title": "あなたの立場",
-  "s1.q": "その年の12月31日時点で、次のどれに当たりますか",
-  "s1.help": "「居住者」＝国内に住所があるか、現在まで引き続き1年以上居所がある個人。「非永住者」＝居住者のうち日本国籍がなく、過去10年以内に国内に住所または居所があった期間の合計が5年以下の個人。判定は12月31日の現況によります。",
-  "s1.opt.resident": "居住者（非永住者ではない）",
-  "s1.opt.resident.n": "国外財産調書の対象になり得ます",
-  "s1.opt.nonperm": "非永住者",
-  "s1.opt.nonperm.n": "制度の対象外です",
-  "s1.opt.nonres": "非居住者",
-  "s1.opt.nonres.n": "制度の対象外です",
+  "s1.q.live": "その年の12月31日時点で、日本に住んでいましたか",
+  "s1.q.live.yes": "はい",
+  "s1.q.live.yes.n": "日本に生活の本拠がある、または1年以上続けて日本で暮らしている",
+  "s1.q.live.no": "いいえ",
+  "s1.q.live.no.n": "日本を離れて暮らしている",
+  "s1.q.live.note": "「住所」とは生活の本拠をいい、客観的な事実によって判定します。「居所」とは、生活の本拠ではないものの現実に居住している場所をいいます（所得税法2①三、所基通2-1）。",
+  "s1.q.jpn": "日本国籍をお持ちですか",
+  "s1.q.jpn.yes": "はい",
+  "s1.q.jpn.no": "いいえ",
+  "s1.q.jpn.note": "日本国籍があれば、この先の設問は不要です。国籍は12月31日時点で判定します。",
+  "s1.q.five": "過去10年以内に、日本に住所または居所があった期間の合計は5年を超えますか",
+  "s1.q.five.yes": "5年を超える",
+  "s1.q.five.no": "5年以下",
+  "s1.q.five.note": "通算です。連続している必要はありません。5年ちょうどなら「5年以下」に当たります（所得税法2①四）。",
+  "s1.v.resident": "所得税法上の「居住者」（非永住者以外）に当たります。国外財産の合計額しだいで、国外財産調書の対象になります。",
+  "s1.v.nonperm": "所得税法上の「非永住者」に当たります。非永住者は提出義務者から除かれているため、<b>金額にかかわらず提出は不要</b>です（法5①）。",
+  "s1.v.nonres": "所得税法上の「非居住者」に当たります。国外財産調書は居住者が提出する制度なので、<b>提出義務はありません</b>（法5①）。",
+  "s1.help": "居住者であるかどうかは、その年の12月31日の現況により判定します（通達5-2）。この3つの設問は、所得税法2条1項3号・4号の定義をそのまま分解したものです。",
   "s1.disc": "死亡・出国による提出免除を反映する",
   "s1.disc.who": "対象年の翌年1月1日から6月30日までの間に、ご本人が亡くなった、または日本を出国した場合だけ開いてください。ほとんどの方は開かずに次へ進めます。",
   "s1.exempt": "翌年1月1日から6月30日までの間に、調書を提出しないで死亡した、または出国した",
@@ -748,7 +785,7 @@ ja: {
   "q.deposit.branch.jp": "国内の営業所・支店",
   "q.deposit.branch.jp.n": "外貨預金でも、外国銀行の在日支店でも国外財産になりません",
   "q.deposit.branch.fr": "国外の営業所・支店",
-  "q.deposit.branch.note": "円建て・外貨建てを問わず、預入れをした金融機関の営業所の所在で判定します（FAQ Q22）。",
+  "q.deposit.branch.note": "円建て・外貨建てを問わず、預入れをした金融機関の営業所の所在で判定します（FAQ 問22）。",
 
   "q.securities.issuer": "発行体はどれですか",
   "q.securities.issuer.jpco": "本店・主たる事務所が国内にある法人",
@@ -759,19 +796,19 @@ ja: {
   "q.securities.account.jpacc": "国内の金融商品取引業者等の口座",
   "q.securities.account.fracc": "国外の金融商品取引業者等の口座",
   "q.securities.account.none": "口座で管理していない（現物保有など）",
-  "q.securities.note": "口座（振替口座簿）で管理されている場合は、発行体ではなく口座を開設した営業所の所在で判定します（令10②、規12③④、FAQ Q23）。国外口座にあれば日本企業の株式でも国外財産、国内口座にあれば外国株でも国外財産になりません。",
+  "q.securities.note": "口座（振替口座簿）で管理されている場合は、発行体ではなく口座を開設した営業所の所在で判定します（令10②、規12③④、FAQ 問23）。国外口座にあれば日本企業の株式でも国外財産、国内口座にあれば外国株でも国外財産になりません。",
 
   "q.loan.debtor": "債務者（貸付先）の住所・本店はどこですか",
   "q.loan.debtor.jp": "国内",
   "q.loan.debtor.fr": "国外",
-  "q.loan.debtor.note": "貸付金は債務者の住所または本店の所在で判定します（相続税法10①七、FAQ Q26）。債務者が2以上あるときは主たる債務者で判定します。",
+  "q.loan.debtor.note": "貸付金は債務者の住所または本店の所在で判定します（相続税法10①七、FAQ 問26）。債務者が2以上あるときは主たる債務者で判定します。",
 
   "q.insurance.insurer": "保険会社等の本店・主たる事務所はどこにありますか",
   "q.insurance.insurer.jp": "国内",
   "q.insurance.insurer.fr": "国外",
-  "q.insurance.insurer.note": "価額は、その年の12月31日に解約した場合の解約返戻金の額として差し支えありません（通達5-10⒀イ）。国外で加入した確定拠出型年金も同様に扱えます（FAQ Q31）。",
+  "q.insurance.insurer.note": "価額は、その年の12月31日に解約した場合の解約返戻金の額として差し支えありません（通達5-10⒀イ）。国外で加入した確定拠出型年金も同様に扱えます（FAQ 問31）。",
 
-  "q.crypto.auto": "暗号資産・NFTは保有者の住所で所在を判定します。あなたは居住者なので、<b>国外の取引所やマーケットプレイスに置いていても「国内にある財産」</b>となり、国外財産調書の対象にはなりません（規12③六、FAQ Q36・Q37）。金額は判定に加算されません。",
+  "q.crypto.auto": "暗号資産・NFTは保有者の住所で所在を判定します。あなたは居住者なので、<b>国外の取引所やマーケットプレイスに置いていても「国内にある財産」</b>となり、国外財産調書の対象にはなりません（規12③六、FAQ 問36・問37）。金額は判定に加算されません。",
 
   "q.movables.place": "その財産はどこで保管していますか",
   "q.movables.place.jp": "国内",
@@ -783,7 +820,7 @@ ja: {
   "q.movables.kind.other": "その他の動産（家具・什器・自動車・船舶等）",
   "q.movables.kind.note": "指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
   "q.movables.exclude": "1個または1組の価額が10万円未満（または取得価額100万円未満の家庭用動産）",
-  "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ Q27・Q28）。",
+  "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ 問27・問28）。",
 
   "q.other.sub": "内訳はどれに当たりますか",
   "q.other.sub.deposit_money": "預託金・委託証拠金その他の保証金",
@@ -803,7 +840,7 @@ ja: {
   "q.other.where.jp": "国内",
   "q.other.where.fr": "国外",
   "q.other.residualNote": "これらに当たらない財産は、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
-  "q.other.derivativeNote": "含み損がある場合は<b>マイナスの見積価額</b>として入力できます。合計額の判定では他の財産と通算します（FAQ Q3）。12月31日に決済したとみなして算出した利益または損失の額を入れてください。",
+  "q.other.derivativeNote": "含み損がある場合は<b>マイナスの見積価額</b>として入力できます。合計額の判定では他の財産と通算します（FAQ 問3）。12月31日に決済したとみなして算出した利益または損失の額を入れてください。",
 
   "row.currency": "通貨",
   "row.ccyOther": "その他…",
@@ -817,7 +854,7 @@ ja: {
   "row.detail.who": "その財産の持分が100％でない場合（共有名義、未分割の相続財産など）だけ開いてください。単独で所有していれば開く必要はありません。",
   "row.detail.whoInh": "その財産の持分が100％でない場合（共有名義、未分割の相続財産など）、またはこの財産が相続国外財産である場合に開いてください。単独で所有し、相続で取得したものでなければ開く必要はありません。",
   "row.share": "自分の持分（％）",
-  "row.shareHelp": "空欄なら100％として計算します。共有財産で持分が定まっていない場合は、各共有者の持分は相等しいものと推定します。夫婦の共有名義で持分不明なら50を入れてください。未分割の相続財産は法定相続分で按分します（通達5-15、FAQ Q15・Q16）。",
+  "row.shareHelp": "空欄なら100％として計算します。共有財産で持分が定まっていない場合は、各共有者の持分は相等しいものと推定します。夫婦の共有名義で持分不明なら50を入れてください。未分割の相続財産は法定相続分で按分します（通達5-15、FAQ 問15・問16）。",
   "row.inherited": "この財産は相続国外財産（この年の相続・遺贈で取得した国外財産）",
   "row.remove": "この財産を削除",
   "row.empty": "まだ財産が入力されていません。下のボタンから1件ずつ追加してください。",
@@ -907,7 +944,7 @@ ja: {
   "r.val.2": "上場株式等 — 取引所が公表する12月31日の最終価格（同日に価格がなければ直近の最終価格）",
   "r.val.3": "土地・建物 — 外国の固定資産税に相当する租税の課税標準額、取得価額に合理的な価格変動率を乗じた額、翌年1月1日から提出期限までに譲渡した場合の譲渡価額 等",
   "r.val.4": "保険 — 12月31日に解約した場合の解約返戻金の額",
-  "r.val.debt": "<b>債務は差し引けません。</b>借入金で取得した国外財産でも、借入金元本を控除せずに時価または見積価額で記載します。1億円の海外不動産を1億円の借入で買っていても、1億円として判定します（FAQ Q39）。",
+  "r.val.debt": "<b>債務は差し引けません。</b>借入金で取得した国外財産でも、借入金元本を控除せずに時価または見積価額で記載します。1億円の海外不動産を1億円の借入で買っていても、1億円として判定します（FAQ 問39）。",
 
   "r.other": "混同しやすい別制度",
   "r.otherBody": "<b>財産債務調書</b>は国外財産調書とは別の制度です。国外財産調書を提出する方でも、要件に当たれば財産債務調書の提出も必要です。<br>対象は、①所得税の確定申告書を提出すべき方等で、退職所得を除く各種所得金額の合計額が2,000万円を超え、かつ12月31日時点で価額の合計額が3億円以上の財産または1億円以上の国外転出特例対象財産を有する場合、②令和5年分以後は、所得を問わず12月31日時点で10億円以上の財産を有する居住者。<br>なお、国外財産調書を提出する場合、財産債務調書には国外財産に係る事項（価額を除く）の記載を要しません。ただし国外にある債務は財産債務調書に記載する必要があります。このツールは財産債務調書の判定は行いません。",
@@ -928,7 +965,7 @@ ja: {
   "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved.·無断複製・再配布を禁じます",
 
   "src.nta7456": "国税庁 タックスアンサー No.7456 国外財産調書の提出義務",
-  "src.faq": "国税庁 国外財産調書制度（FAQ）（PDF）",
+  "src.faq": "国税庁 国外財産調書制度（FAQ）令和7年6月版（PDF）",
   "src.pamph": "国税庁 国外財産調書制度に関するお知らせ",
   "src.form": "国税庁 ［手続名］国外財産調書（同合計表）",
   "src.etax": "e-Tax（国税電子申告・納税システム）",
@@ -951,14 +988,24 @@ en: {
   "act.copyfail": "Could not copy. Please copy the URL from the address bar.",
 
   "s1.title": "Your status",
-  "s1.q": "As of 31 December, which describes you?",
-  "s1.help": "A resident has a domicile in Japan or has had a residence there for one year or more. A non-permanent resident is a resident without Japanese nationality who has had a domicile or residence in Japan for five years or less within the past ten years. Status is judged as of 31 December.",
-  "s1.opt.resident": "Resident (not a non-permanent resident)",
-  "s1.opt.resident.n": "May be required to file",
-  "s1.opt.nonperm": "Non-permanent resident",
-  "s1.opt.nonperm.n": "Outside the scope of this regime",
-  "s1.opt.nonres": "Non-resident",
-  "s1.opt.nonres.n": "Outside the scope of this regime",
+  "s1.q.live": "On 31 December of that year, were you living in Japan?",
+  "s1.q.live.yes": "Yes",
+  "s1.q.live.yes.n": "Japan is the base of your life, or you have lived here for a year or more",
+  "s1.q.live.no": "No",
+  "s1.q.live.no.n": "You live outside Japan",
+  "s1.q.live.note": "\"Domicile\" means the base of your life, judged on objective facts. \"Residence\" means a place you actually live without it being that base (Income Tax Act 2(1)(iii)).",
+  "s1.q.jpn": "Do you hold Japanese nationality?",
+  "s1.q.jpn.yes": "Yes",
+  "s1.q.jpn.no": "No",
+  "s1.q.jpn.note": "If you do, no further question is needed. Nationality is judged as of 31 December.",
+  "s1.q.five": "Within the past ten years, have you had a domicile or residence in Japan for more than five years in total?",
+  "s1.q.five.yes": "More than five years",
+  "s1.q.five.no": "Five years or less",
+  "s1.q.five.note": "The total need not be continuous. Exactly five years counts as \"five years or less\" (Income Tax Act 2(1)(iv)).",
+  "s1.v.resident": "You are a resident, and not a non-permanent resident. Whether you must file depends on the total value of your foreign assets.",
+  "s1.v.nonperm": "You are a non-permanent resident. Non-permanent residents are excluded from the filing requirement, so <b>no filing is needed whatever the amount</b> (Art. 5(1)).",
+  "s1.v.nonres": "You are a non-resident. Only residents file this report, so <b>you have no filing obligation</b> (Art. 5(1)).",
+  "s1.help": "Residence status is judged on your position as of 31 December. These questions are the statutory test in Article 2(1)(iii) and (iv) of the Income Tax Act, broken into steps.",
   "s1.disc": "Apply the death / departure exemption",
   "s1.disc.who": "Open this only if the person died or left Japan between 1 January and 30 June of the following year. Most people can skip it.",
   "s1.exempt": "Died or left Japan between 1 January and 30 June of the following year without filing",
@@ -1191,7 +1238,7 @@ en: {
   "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved. · Unauthorised reproduction or redistribution is prohibited.",
 
   "src.nta7456": "NTA Tax Answer No.7456 — Obligation to file the foreign asset report",
-  "src.faq": "NTA — Foreign asset report FAQ (PDF, Japanese)",
+  "src.faq": "NTA — Foreign asset report FAQ, June 2025 edition (PDF, Japanese)",
   "src.pamph": "NTA — About the foreign asset report regime",
   "src.form": "NTA — Foreign asset report form and summary table",
   "src.etax": "e-Tax",
@@ -1219,7 +1266,7 @@ function defaultYear() {
   return y < RULES.yearFloor ? RULES.yearFloor : y;
 }
 function blankState() {
-  return { year: defaultYear(), residency: "", exempt: false, inherit: false, rows: [] };
+  return { year: defaultYear(), res: {}, exempt: false, inherit: false, rows: [] };
 }
 function newRow() {
   return { id: ++seq, cat: "", ans: {}, ccy: "JPY", amt: "", rate: "", share: "", excl: false, inh: false, label: "" };
@@ -1294,6 +1341,9 @@ function fmtDate(d) {
 }
 
 /* 1行の判定 */
+/** 居住者区分。設問が残っていれば null。 */
+function residencyOf() { return RULES.residency.resolve(S.res); }
+
 function rowVerdict(r) {
   const c = RULES.categories[r.cat];
   if (!c) return null;
@@ -1330,9 +1380,10 @@ function rowPending(r) {
 }
 
 function judge() {
-  if (!S.residency) return { code: "na" };
-  if (S.residency === "nonperm") return { code: "nonperm" };
-  if (S.residency === "nonres") return { code: "nonres" };
+  const rz = residencyOf();
+  if (!rz) return { code: "na" };
+  if (rz === "nonperm") return { code: "nonperm" };
+  if (rz === "nonres") return { code: "nonres" };
   if (S.exempt) return { code: "exempt" };
   if (!S.rows.length) return { code: "norows" };
   const pending = S.rows.filter(rowPending).length;
@@ -1781,6 +1832,42 @@ function renderResult(j, total, ck) {
 /* ============================================================================
    7. RENDER — static chrome
    ============================================================================ */
+/** [居住者判定] 所在判定ウィザードと同じ作り。答え終えるまで区分名を出さない。 */
+function renderResidency() {
+  const host = document.getElementById("residency");
+  host.innerHTML = "";
+  RULES.residency.questions.forEach(q => {
+    if (q.when && !q.when(S.res)) return;
+    const w = el("div", "wiz-q");
+    w.appendChild(el("span", "qlab", esc(t("s1.q." + q.id))));
+    const box = el("div", "choices");
+    q.opts.forEach(o => {
+      const key = "s1.q." + q.id + "." + o;
+      const on = S.res[q.id] === o;
+      const lb = el("label", "choice" + (on ? " on" : ""));
+      const inp = el("input");
+      inp.type = "radio"; inp.name = "res-" + q.id; inp.checked = on;
+      inp.onchange = () => {
+        S.res[q.id] = o;
+        // 前提が変わって不要になった後続の回答は捨てる
+        RULES.residency.questions.forEach(qq => { if (qq.when && !qq.when(S.res)) delete S.res[qq.id]; });
+        renderResidency();
+        refresh(true);
+      };
+      let inner = esc(t(key));
+      if (has(key + ".n")) inner += '<span class="cnote">' + esc(t(key + ".n")) + "</span>";
+      lb.appendChild(inp);
+      lb.appendChild(el("span", "ctxt", inner));
+      box.appendChild(lb);
+    });
+    w.appendChild(box);
+    if (has("s1.q." + q.id + ".note")) w.appendChild(el("p", "help", t("s1.q." + q.id + ".note")));
+    host.appendChild(w);
+  });
+  const rz = residencyOf();
+  if (rz) host.appendChild(el("div", "verdict-note " + (rz === "resident" ? "for" : "dom"), t("s1.v." + rz)));
+}
+
 function renderChrome() {
   document.documentElement.lang = lang;
   document.title = t("app.title");
@@ -1790,18 +1877,7 @@ function renderChrome() {
   });
 
   /* residency */
-  const rh = document.getElementById("residency");
-  rh.innerHTML = "";
-  ["resident", "nonperm", "nonres"].forEach(k => {
-    const on = S.residency === k;
-    const lb = el("label", "choice" + (on ? " on" : ""));
-    const inp = el("input");
-    inp.type = "radio"; inp.name = "residency"; inp.checked = on;
-    inp.onchange = () => { S.residency = k; refresh(true); };
-    lb.appendChild(inp);
-    lb.appendChild(el("span", "ctxt", esc(t("s1.opt." + k)) + '<span class="cnote">' + esc(t("s1.opt." + k + ".n")) + "</span>"));
-    rh.appendChild(lb);
-  });
+  renderResidency();
 
   /* year */
   const y = document.getElementById("year");
@@ -1870,7 +1946,7 @@ function b64d(s) {
 }
 function encodeState() {
   const o = {
-    v: 1, l: lang, y: S.year, r: S.residency, e: S.exempt ? 1 : 0, i: S.inherit ? 1 : 0,
+    v: 1, l: lang, y: S.year, r: S.res, e: S.exempt ? 1 : 0, i: S.inherit ? 1 : 0,
     rows: S.rows.map(r => ({ c: r.cat, a: r.ans, u: r.ccy, m: r.amt, t: r.rate, s: r.share, x: r.excl ? 1 : 0, h: r.inh ? 1 : 0, n: r.label }))
   };
   try { return b64e(JSON.stringify(o)); } catch (e) { return ""; }
@@ -1882,7 +1958,13 @@ function decodeState(h) {
     if (o.l === "en" || o.l === "ja") lang = o.l;
     S = blankState();
     if (yearList().indexOf(o.y) >= 0) S.year = o.y;
-    if (["resident", "nonperm", "nonres"].indexOf(o.r) >= 0) S.residency = o.r;
+    // r は現在オブジェクト。文字列だった頃の共有URLも読めるようにする。
+    if (typeof o.r === "string") S.res = Object.assign({}, RULES.residencyLegacy[o.r]);
+    else if (o.r && typeof o.r === "object") {
+      RULES.residency.questions.forEach(q => {
+        if (q.opts.indexOf(o.r[q.id]) >= 0) S.res[q.id] = o.r[q.id];
+      });
+    }
     S.exempt = !!o.e; S.inherit = !!o.i;
     (o.rows || []).forEach(x => {
       const r = newRow();
