@@ -1,0 +1,1948 @@
+<!DOCTYPE html>
+<!--
+  国外財産調書 提出義務チェッカー / Japan Foreign Asset Report (Kokugai Zaisan Chosho) Obligation Checker
+  Copyright (c) 2026 fpyamamoto. All Rights Reserved.
+  無断複製・再配布を禁じます / Unauthorised reproduction or redistribution is prohibited.
+
+  This source code is made available for viewing purposes only.
+  No permission is granted to use, copy, modify, merge, publish, distribute,
+  sublicense, or sell copies of this software, in whole or in part.
+  See LICENSE for details.
+
+  Not tax advice. Consult a licensed tax professional (zeirishi).
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>国外財産調書 提出義務チェッカー</title>
+<meta name="description" content="12月31日時点の国外財産が5,000万円を超えるかを、財産の「所在」判定から確認する簡易チェックツール。">
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --ink:#16202E;
+  --ink-2:#33465C;
+  --muted:#67788A;
+  --paper:#EDF0F2;
+  --card:#FFFFFF;
+  --rule:#C9D2D9;
+  --rule-2:#E2E8ED;
+  --seal:#BE3A2B;
+  --seal-deep:#8E2419;
+  --seal-soft:#FBEDEB;
+  --jade:#2B6A5F;
+  --jade-soft:#E9F1EF;
+  --warn:#8A6212;
+  --warn-soft:#FBF3E0;
+  --focus:#1F5FA8;
+
+  --mincho: "Yu Mincho","YuMincho","Hiragino Mincho ProN","Hiragino Mincho Pro","MS PMincho",serif;
+  --gothic: "Yu Gothic","YuGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Meiryo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono: ui-monospace,"SFMono-Regular","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
+
+  --sp:4px;
+  --maxw:1180px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--gothic);
+  font-size:15px;
+  line-height:1.75;
+  -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--mincho);font-weight:600;letter-spacing:.02em;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--focus)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+/* 日本語は文字単位で改行されるため、「…」で括った語が行末で分断される。
+   まとめて折り返し禁止にする（付与は nb() が行う）。 */
+.nb{white-space:nowrap}
+
+/* ============================================================
+   MASTHEAD
+   ============================================================ */
+.mast{
+  border-bottom:1px solid var(--rule);
+  background:var(--card);
+}
+/* [FIX 8] grid — not flex-wrap — so the tools stay pinned top-right
+   however long the title runs in any language. */
+.mast-in{
+  max-width:var(--maxw);margin:0 auto;padding:22px 20px 18px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;column-gap:24px;
+}
+.brand{min-width:0}
+/* ch は「0」の字幅基準なので全角1文字が約2ch分を占める。日本語見出しに
+   ch単位の上限をかけると意図せず折り返すため、上限は欧文の時だけかける。 */
+.brand h1{font-size:25px;line-height:1.35}
+.brand .kicker{
+  font-size:11px;letter-spacing:.22em;color:var(--muted);
+  text-transform:uppercase;font-family:var(--gothic);margin-bottom:6px;
+  overflow-wrap:anywhere;
+}
+.brand .sub{font-size:13px;color:var(--muted);margin-top:4px;max-width:56ch}
+html[lang="en"] .brand h1{font-size:20px;line-height:1.3;max-width:26ch}
+html[lang="en"] .brand .kicker{letter-spacing:.14em}
+.mast-tools{display:flex;gap:8px;align-items:center;justify-self:end;flex:0 0 auto}
+@media(max-width:640px){
+  .mast-in{grid-template-columns:1fr;row-gap:14px}
+  .mast-tools{justify-self:start}
+  .brand h1,html[lang="en"] .brand h1{font-size:19px}
+}
+.lang{display:inline-flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden;background:var(--card)}
+.lang button{
+  border:0;background:transparent;padding:5px 11px;font-size:12px;letter-spacing:.08em;
+  cursor:pointer;color:var(--muted);white-space:nowrap;
+}
+.lang button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.tbtn{
+  border:1px solid var(--rule);background:var(--card);border-radius:2px;
+  padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink-2);white-space:nowrap;
+}
+.tbtn:hover{border-color:var(--ink-2)}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 80px;display:grid;grid-template-columns:1fr 330px;gap:26px;align-items:start}
+@media(max-width:960px){.wrap{grid-template-columns:1fr;padding-bottom:150px}}
+
+/* ============================================================
+   STEP
+   ============================================================ */
+.step{background:var(--card);border:1px solid var(--rule-2);border-radius:3px;margin-bottom:16px}
+.step-hd{
+  display:flex;gap:12px;align-items:baseline;
+  padding:14px 18px;border-bottom:1px solid var(--rule-2);
+}
+.step-no{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  border:1px solid var(--rule);border-radius:2px;padding:1px 6px;flex:0 0 auto;
+}
+.step-hd h2{font-size:17px}
+.step-hd .req{
+  font-size:10px;letter-spacing:.1em;color:var(--seal);border:1px solid currentColor;
+  padding:0 5px;border-radius:2px;margin-left:auto;flex:0 0 auto;
+}
+.step-bd{padding:16px 18px}
+
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.lab{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.help{font-size:12.5px;color:var(--muted);line-height:1.7;margin:6px 0 0}
+.help a{color:var(--focus)}
+
+/* choice */
+.choices{display:grid;gap:7px}
+.choice{
+  display:flex;gap:10px;align-items:flex-start;
+  border:1px solid var(--rule);border-radius:3px;padding:9px 12px;cursor:pointer;background:#fff;
+}
+.choice:hover{border-color:var(--ink-2);background:#FAFCFD}
+.choice input{margin:5px 0 0;accent-color:var(--ink);flex:0 0 auto}
+.choice.on{border-color:var(--ink);background:#F4F8FA;box-shadow:inset 3px 0 0 var(--ink)}
+.choice .ctxt{font-size:13.5px}
+.choice .cnote{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.6}
+
+select,input[type=text],input[type=number]{
+  width:100%;border:1px solid var(--rule);border-radius:3px;background:#fff;padding:8px 10px;font-size:14px;
+}
+input[type=number]{font-family:var(--mono);text-align:right}
+select:hover,input:hover{border-color:var(--ink-2)}
+
+/* disclosure */
+/* [FIX 1,2,3,4] every "+" states, before it is opened, who needs to open it */
+.disc{border-top:1px dashed var(--rule);margin-top:14px;padding-top:12px}
+.disc>summary{
+  cursor:pointer;list-style:none;display:grid;grid-template-columns:14px 1fr;
+  column-gap:8px;align-items:start;
+}
+.disc>summary::-webkit-details-marker{display:none}
+.disc>summary::before{content:"＋";font-family:var(--mono);color:var(--muted);font-size:12px;line-height:1.7}
+.disc[open]>summary::before{content:"−"}
+.disc>summary:hover .disc-t{color:var(--ink);text-decoration:underline}
+.disc-t{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.disc-who{
+  display:block;font-size:12px;color:var(--muted);line-height:1.65;margin-top:1px;
+  grid-column:2;font-weight:400;
+}
+.disc-bd{padding-top:12px;padding-left:22px}
+@media(max-width:520px){.disc-bd{padding-left:0}}
+
+/* ============================================================
+   ASSET ROWS
+   ============================================================ */
+.rows{display:grid;gap:14px}
+.row{border:1px solid var(--rule);border-radius:3px;background:#fff;position:relative;overflow:hidden}
+.row-hd{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:#F6F8F9;border-bottom:1px solid var(--rule-2);
+}
+.row-ix{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.row-hd select{flex:1;min-width:0}
+.row-del{
+  border:1px solid var(--rule);background:#fff;border-radius:2px;width:26px;height:26px;
+  cursor:pointer;color:var(--muted);line-height:1;flex:0 0 auto;font-size:15px;
+}
+.row-del:hover{color:var(--seal);border-color:var(--seal)}
+.row-bd{padding:14px 12px;display:grid;gap:12px}
+
+.wiz{border-left:2px solid var(--rule-2);padding-left:12px;display:grid;gap:12px}
+.wiz-q .qlab{font-size:12.5px;font-weight:600;display:block;margin-bottom:5px}
+.wiz-q .choices{gap:5px}
+.wiz-q .choice{padding:7px 10px}
+.wiz-q .choice .ctxt{font-size:13px}
+
+.money{display:grid;grid-template-columns:104px 1fr 1fr;gap:8px;align-items:end}
+@media(max-width:520px){.money{grid-template-columns:1fr 1fr}}
+.money .mlab{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;letter-spacing:.04em}
+.jpy-out{
+  border-top:1px solid var(--rule-2);padding-top:9px;display:flex;justify-content:space-between;
+  align-items:baseline;gap:10px;font-size:12.5px;color:var(--muted);
+}
+.jpy-out b{font-family:var(--mono);font-size:17px;color:var(--ink);font-weight:600}
+.jpy-out b.neg{color:var(--seal)}
+
+/* seal — the signature element */
+.seal{
+  position:absolute;top:44px;right:14px;width:66px;height:66px;border-radius:50%;
+  display:grid;place-items:center;font-family:var(--mincho);font-weight:600;
+  font-size:19px;letter-spacing:.06em;pointer-events:none;
+  transform:rotate(-9deg);z-index:2;
+}
+.seal::before{
+  content:"";position:absolute;inset:0;border-radius:50%;border:2.5px solid currentColor;opacity:.85;
+}
+.seal::after{
+  content:"";position:absolute;inset:5px;border-radius:50%;border:1px solid currentColor;opacity:.4;
+}
+.seal.foreign{color:var(--seal)}
+.seal.domestic{color:var(--jade);opacity:.55}
+.seal-in{position:relative;z-index:1;text-align:center;line-height:1.05}
+.seal-in small{display:block;font-size:8px;letter-spacing:.12em;opacity:.8;font-family:var(--gothic);margin-top:2px}
+@keyframes stamp{
+  0%{transform:rotate(-9deg) scale(1.9);opacity:0}
+  55%{transform:rotate(-9deg) scale(.92);opacity:1}
+  100%{transform:rotate(-9deg) scale(1);opacity:1}
+}
+.seal.anim{animation:stamp .34s cubic-bezier(.2,.9,.3,1.2) both}
+.row.is-foreign{box-shadow:inset 4px 0 0 var(--seal)}
+.row.is-domestic{opacity:.94}
+.row.is-domestic .row-bd{background:#FCFDFD}
+@media(prefers-reduced-motion:reduce){.seal.anim{animation:none}}
+@media(max-width:520px){.seal{width:54px;height:54px;font-size:15px;top:40px;right:8px}}
+
+.verdict-note{
+  font-size:12px;border-radius:2px;padding:7px 10px;line-height:1.65;
+}
+.verdict-note.dom{background:var(--jade-soft);color:var(--jade)}
+.verdict-note.for{background:var(--seal-soft);color:var(--seal)}
+.verdict-note.exc{background:var(--warn-soft);color:var(--warn)}
+
+.addrow{
+  width:100%;border:1px dashed var(--rule);background:transparent;border-radius:3px;
+  padding:11px;cursor:pointer;color:var(--ink-2);font-size:13.5px;margin-top:14px;
+}
+.addrow:hover{border-color:var(--ink);border-style:solid;background:#fff}
+
+.callout{
+  border:1px solid var(--rule-2);background:#F8FAFB;border-radius:3px;padding:10px 12px;
+  font-size:12.5px;color:var(--ink-2);line-height:1.7;
+}
+.callout b{color:var(--ink)}
+
+/* ============================================================
+   PANEL
+   ============================================================ */
+.panel{position:sticky;top:16px}
+.panel-card{background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.panel-hd{padding:13px 16px 11px;border-bottom:1px solid var(--rule-2)}
+.panel-hd .plab{font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.panel-hd h2{font-size:16px;margin-top:2px}
+.panel-bd{padding:16px}
+
+.total{font-family:var(--mono);font-size:29px;font-weight:600;line-height:1.15;letter-spacing:-.02em}
+.total small{font-size:14px;font-weight:400;color:var(--muted);margin-left:3px}
+.total-lab{font-size:11.5px;color:var(--muted);letter-spacing:.06em}
+
+/* gauge */
+.gauge{margin:16px 0 6px;position:relative;height:9px;background:#E7ECEF;border-radius:1px;overflow:visible}
+.gauge-fill{height:100%;background:var(--jade);border-radius:1px;transition:width .35s ease,background .25s}
+.gauge.over .gauge-fill{background:var(--seal)}
+.gauge-mark{position:absolute;top:-6px;bottom:-6px;left:66.6667%;width:1px;background:var(--ink)}
+.gauge-mark::after{
+  content:attr(data-l);position:absolute;top:-17px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;color:var(--ink);white-space:nowrap;font-family:var(--mono);letter-spacing:.02em;
+}
+.gauge-wrap{padding-top:18px}
+@media(prefers-reduced-motion:reduce){.gauge-fill{transition:none}}
+
+.judg{margin-top:20px;border-top:1px solid var(--rule-2);padding-top:15px}
+.judg-badge{
+  display:inline-block;font-family:var(--mincho);font-size:18px;font-weight:600;
+  padding:5px 13px;border:1.5px solid currentColor;border-radius:2px;letter-spacing:.04em;
+}
+.judg-badge.yes{color:var(--seal);background:var(--seal-soft)}
+.judg-badge.no{color:var(--jade);background:var(--jade-soft)}
+.judg-badge.na{color:var(--muted);background:#F4F6F7;font-size:15px}
+.judg-why{font-size:12.5px;color:var(--ink-2);margin-top:10px;line-height:1.75}
+
+/* [FIX 5] deadline clock */
+.clock{margin-top:10px;font-size:12px;border-radius:2px;padding:6px 9px;line-height:1.6}
+.clock.future{background:#F0F4F7;color:var(--ink-2)}
+.clock.soon{background:var(--warn-soft);color:var(--warn);font-weight:600}
+.clock.past{background:var(--seal-soft);color:var(--seal);font-weight:600}
+
+.kv{border-top:1px solid var(--rule-2);margin-top:15px;padding-top:12px;display:grid;gap:9px}
+.kv-r{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;align-items:baseline}
+.kv-r dt{color:var(--muted);flex:0 0 auto}
+.kv-r dd{margin:0;text-align:right;font-weight:600}
+.kv-r dd .num{font-size:13px}
+
+.panel-acts{display:grid;gap:7px;margin-top:16px}
+.pbtn{
+  border:1px solid var(--rule);background:#fff;border-radius:2px;padding:8px;font-size:12.5px;
+  cursor:pointer;color:var(--ink-2);
+}
+.pbtn:hover{border-color:var(--ink);color:var(--ink)}
+.pbtn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pbtn.primary:hover{background:#0C1523}
+.copied{font-size:11.5px;color:var(--jade);text-align:center;min-height:16px}
+
+@media(max-width:960px){
+  .panel{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:40;padding:0}
+  .panel-card{border-radius:0;border-left:0;border-right:0;border-bottom:0;box-shadow:0 -6px 22px rgba(22,32,46,.13)}
+  .panel-hd{display:none}
+  .panel-bd{padding:11px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .panel-bd .total{font-size:21px}
+  .gauge-wrap{flex:1;min-width:130px;padding-top:16px}
+  .gauge{margin:0}
+  .judg{margin:0;border:0;padding:0}
+  .judg-why,.kv,.panel-acts,.copied,.clock{display:none}
+  .panel.expand .judg-why,.panel.expand .kv,.panel.expand .panel-acts,.panel.expand .copied,.panel.expand .clock{display:block;width:100%}
+  .panel.expand .kv,.panel.expand .panel-acts{display:grid}
+  .panel-toggle{display:block !important}
+}
+.panel-toggle{display:none;width:100%;border:0;background:transparent;font-size:11.5px;color:var(--muted);cursor:pointer;padding:2px}
+
+/* ============================================================
+   RESULT
+   ============================================================ */
+.result{margin-top:22px}
+.res-card{background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.res-hd{padding:15px 18px;border-bottom:1px solid var(--rule-2);background:#F6F8F9}
+.res-hd h2{font-size:18px}
+.res-hd p{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+.res-bd{padding:0}
+.res-sec{border-bottom:1px solid var(--rule-2);padding:15px 18px}
+.res-sec:last-child{border-bottom:0}
+.res-sec h3{font-size:14.5px;margin-bottom:7px}
+.res-sec p{margin:0 0 8px;font-size:13px;line-height:1.8;color:var(--ink-2)}
+.res-sec p:last-child{margin-bottom:0}
+.res-sec ul{margin:0;padding-left:1.15em;font-size:13px;line-height:1.8;color:var(--ink-2)}
+.res-sec li{margin-bottom:4px}
+.res-sec.urgent{border-left:3px solid var(--seal);background:#FEF8F7}
+
+/* [FIX 7] penalty blocks — colour carries the meaning, one peak only.
+   The 5% reduction is good news, so it is green, not red. */
+.pen{border-radius:2px;padding:10px 12px;margin:0 0 9px;font-size:13px;line-height:1.8}
+.pen:last-child{margin-bottom:0}
+.pen.good{background:var(--jade-soft);color:var(--jade);border-left:3px solid var(--jade)}
+.pen.bad{background:var(--seal-soft);color:var(--seal-deep);border-left:3px solid var(--seal)}
+.pen.bad b{color:var(--seal)}
+.pen.crit{background:var(--seal);color:#fff;border-left:3px solid var(--seal-deep);font-weight:500}
+.pen.crit b{color:#fff;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+.tag{
+  display:inline-block;font-size:10px;letter-spacing:.1em;padding:1px 6px;border-radius:2px;
+  vertical-align:middle;margin-left:7px;font-family:var(--gothic);
+}
+.tag.d{background:var(--seal-soft);color:var(--seal)}
+.tag.i{background:#EEF3F8;color:var(--focus)}
+
+.breakdown{width:100%;border-collapse:collapse;font-size:12.5px}
+.breakdown th,.breakdown td{border-bottom:1px solid var(--rule-2);padding:6px 8px;text-align:left}
+.breakdown th{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.breakdown td:last-child,.breakdown th:last-child{text-align:right;font-family:var(--mono)}
+.breakdown tr.dom td{color:var(--muted)}
+.breakdown tfoot td{font-weight:700;border-bottom:0;border-top:1.5px solid var(--ink)}
+
+.disclaimer{
+  border:1px solid var(--seal);border-left-width:3px;background:var(--seal-soft);border-radius:3px;
+  padding:13px 15px;margin-top:18px;font-size:12.5px;line-height:1.8;color:#7A2519;
+}
+.disclaimer b{display:block;font-family:var(--mincho);font-size:14px;margin-bottom:4px;color:var(--seal)}
+
+/* ============================================================
+   FOOT
+   ============================================================ */
+.foot{border-top:1px solid var(--rule);background:var(--card);margin-top:0}
+.foot-in{max-width:var(--maxw);margin:0 auto;padding:26px 20px 34px;font-size:12px;color:var(--muted);line-height:1.85}
+.foot h3{font-size:12.5px;color:var(--ink);margin-bottom:6px;font-family:var(--gothic);letter-spacing:.04em}
+.foot ul{margin:0 0 16px;padding-left:1.1em}
+.foot li{margin-bottom:3px}
+.foot .ref{color:var(--muted);font-size:11.5px}
+.foot .meta{border-top:1px solid var(--rule-2);padding-top:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.foot code{font-family:var(--mono);font-size:11px}
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+@media print{
+  body{background:#fff;font-size:10.5pt}
+  .mast-tools,.panel-acts,.addrow,.row-del,.lang,.tbtn,.panel-toggle,.copied{display:none !important}
+  .wrap{display:block;max-width:none;padding:0}
+  .panel{position:static;page-break-inside:avoid}
+  .panel-card,.step,.res-card{border:1px solid #999;box-shadow:none;page-break-inside:avoid}
+  .row{page-break-inside:avoid}
+  .disc{display:none}
+  .disc[open]{display:block}
+  .seal,.gauge-fill,.judg-badge,.disclaimer,.verdict-note,.pen,.clock{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .foot{border-top:1px solid #999}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:8pt;color:#666}
+}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand">
+      <div class="kicker" data-t="app.kicker"></div>
+      <h1 data-t="app.title"></h1>
+      <p class="sub" data-t="app.sub"></p>
+    </div>
+    <div class="mast-tools">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ja" aria-pressed="true">日本語</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button type="button" class="tbtn" id="reset" data-t="act.reset"></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="main-col">
+
+    <!-- STEP 1 : 対象者 -->
+    <section class="step">
+      <div class="step-hd">
+        <span class="step-no">01</span>
+        <h2 data-t="s1.title"></h2>
+        <span class="req" data-t="ui.required"></span>
+      </div>
+      <div class="step-bd">
+        <div class="field">
+          <span class="lab" data-t="s1.q"></span>
+          <div class="choices" id="residency"></div>
+          <p class="help" data-t="s1.help"></p>
+        </div>
+        <details class="disc" id="disc-exempt">
+          <summary>
+            <span class="disc-t" data-t="s1.disc"></span>
+            <span class="disc-who" data-t="s1.disc.who"></span>
+          </summary>
+          <div class="disc-bd">
+            <label class="choice" id="exempt-l">
+              <input type="checkbox" id="exempt">
+              <span class="ctxt" data-t="s1.exempt"></span>
+            </label>
+            <p class="help" data-t="s1.exemptHelp"></p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- STEP 2 : 対象年 -->
+    <section class="step">
+      <div class="step-hd">
+        <span class="step-no">02</span>
+        <h2 data-t="s2.title"></h2>
+        <span class="req" data-t="ui.required"></span>
+      </div>
+      <div class="step-bd">
+        <div class="field" style="max-width:280px">
+          <label class="lab" for="year" data-t="s2.q"></label>
+          <select id="year"></select>
+        </div>
+        <p class="help" data-t="s2.help"></p>
+        <details class="disc" id="disc-inherit">
+          <summary>
+            <span class="disc-t" data-t="s2.disc"></span>
+            <span class="disc-who" data-t="s2.disc.who"></span>
+          </summary>
+          <div class="disc-bd">
+            <label class="choice" id="inherit-l">
+              <input type="checkbox" id="inherit">
+              <span class="ctxt" data-t="s2.inherit"></span>
+            </label>
+            <p class="help" data-t="s2.inheritHelp"></p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- STEP 3 : 財産 -->
+    <section class="step">
+      <div class="step-hd">
+        <span class="step-no">03</span>
+        <h2 data-t="s3.title"></h2>
+        <span class="req" data-t="ui.required"></span>
+      </div>
+      <div class="step-bd">
+        <p class="callout" data-t="s3.intro" style="margin-bottom:14px"></p>
+        <div class="rows" id="rows"></div>
+        <button type="button" class="addrow" id="addrow" data-t="s3.add"></button>
+        <details class="disc">
+          <summary>
+            <span class="disc-t" data-t="s3.disc"></span>
+            <span class="disc-who" data-t="s3.disc.who"></span>
+          </summary>
+          <div class="disc-bd" id="rate-help"></div>
+        </details>
+      </div>
+    </section>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <!-- PANEL -->
+  <aside class="panel" id="panel">
+    <div class="panel-card">
+      <div class="panel-hd">
+        <div class="plab" data-t="p.lab"></div>
+        <h2 data-t="p.title"></h2>
+      </div>
+      <div class="panel-bd">
+        <div>
+          <div class="total-lab" data-t="p.total"></div>
+          <div class="total"><span id="total-v" class="num">0</span><small data-t="ui.yen"></small></div>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge" id="gauge"><div class="gauge-fill" id="gfill" style="width:0"></div><div class="gauge-mark" id="gmark" data-l="5,000万円"></div></div>
+        </div>
+        <div class="judg">
+          <span class="judg-badge na" id="badge">—</span>
+          <p class="judg-why" id="why"></p>
+        </div>
+        <div id="clock"></div>
+        <dl class="kv" id="kv"></dl>
+        <div class="panel-acts">
+          <button type="button" class="pbtn primary" id="share" data-t="act.share"></button>
+          <button type="button" class="pbtn" id="print" data-t="act.print"></button>
+        </div>
+        <div class="copied" id="copied"></div>
+        <button type="button" class="panel-toggle" id="ptoggle" data-t="p.more"></button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <h3 data-t="f.sources"></h3>
+    <ul id="src"></ul>
+    <h3 data-t="f.ref"></h3>
+    <ul id="ref"></ul>
+    <h3 data-t="f.scope"></h3>
+    <p style="margin:0 0 16px" data-t="f.scopeBody"></p>
+    <div class="meta">
+      <span data-t="f.updated"></span>
+      <span data-t="f.copyright"></span>
+    </div>
+  </div>
+</footer>
+
+<datalist id="ccy-list"></datalist>
+
+<script>
+"use strict";
+/* ============================================================================
+   1. DATA — 制度データ。ロジックから分離。改正時はここだけ差し替える。
+   ============================================================================ */
+const RULES = {
+  updated: "2026-07-15",
+  basis: { taxanswer: "令和7年6月1日現在法令等", faq: "令和5年4月版" },
+  threshold: 50000000,          // 5,000万円「超」（以上ではない）
+  // [FIX 5] 年は固定リストではなく現在の年から自動生成する。毎年の手当てが不要。
+  yearFloor: 2022,
+  soonDays: 90,                 // 期限まで何日で警告色に切り替えるか
+  // 提出期限：令和5年分（2023年分）以後は翌年6/30。令和4年分（2022年分）以前は翌年3/15。
+  deadline: { pivotYear: 2023, newRule: { m: 5, d: 30 }, oldRule: { m: 2, d: 15 } },
+  currencies: ["JPY","USD","EUR","GBP","AUD","NZD","CAD","CHF","SGD","HKD","CNY","KRW","TWD","THB","MYR","PHP","IDR","VND","INR","KHR","LAK","BDT","AED","BRL","MXN","ZAR"],
+  sources: [
+    { key: "src.nta7456", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/hotei/7456.htm" },
+    { key: "src.faq",     url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/pdf/kokugai_faq_r5-1.pdf" },
+    { key: "src.pamph",   url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/index.htm" },
+    { key: "src.form",    url: "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/hotei/2506.htm" },
+    { key: "src.etax",    url: "https://www.e-tax.nta.go.jp" }
+  ],
+  // 一次情報ではないので出典とは分けて掲げる（[FIX 4]）
+  refs: [
+    { key: "ref.murc", url: "https://www.murc-kawasesouba.jp/fx/past_3month.php" }
+  ],
+  /* 財産の区分（名前のついた7区分＋受け皿）と所在判定ウィザード。
+     verdict = "foreign" | "domestic" | null(未回答)
+     根拠：国外送金等調書法5③／令10①②／規12③④／相続税法10①②／FAQ Q6・Q22・Q23・Q36 */
+  categories: {
+    realestate: {
+      questions: [{ id: "loc", opts: ["jp", "fr"] }],
+      resolve: a => a.loc ? (a.loc === "fr" ? "foreign" : "domestic") : null
+    },
+    deposit: {
+      questions: [{ id: "branch", opts: ["jp", "fr"] }],
+      resolve: a => a.branch ? (a.branch === "fr" ? "foreign" : "domestic") : null
+    },
+    securities: {
+      // FAQ Q23：口座で管理していれば口座の所在が優先。口座がなければ発行体基準。
+      questions: [
+        { id: "issuer", opts: ["jpco", "frco", "jpbond", "frbond"] },
+        { id: "account", opts: ["jpacc", "fracc", "none"] }
+      ],
+      resolve: a => {
+        if (!a.issuer || !a.account) return null;
+        if (a.account === "fracc") return "foreign";
+        if (a.account === "jpacc") return "domestic";
+        return (a.issuer === "frco" || a.issuer === "frbond") ? "foreign" : "domestic";
+      }
+    },
+    loan: {
+      questions: [{ id: "debtor", opts: ["jp", "fr"] }],
+      resolve: a => a.debtor ? (a.debtor === "fr" ? "foreign" : "domestic") : null
+    },
+    insurance: {
+      questions: [{ id: "insurer", opts: ["jp", "fr"] }],
+      resolve: a => a.insurer ? (a.insurer === "fr" ? "foreign" : "domestic") : null
+    },
+    crypto: {
+      // 規12③六：保有者の住所で判定。居住者が対象者なので常に国内＝対象外。
+      questions: [],
+      auto: true,
+      resolve: () => "domestic"
+    },
+    movables: {
+      questions: [
+        { id: "place", opts: ["jp", "fr"] },
+        { id: "kind", opts: ["cash", "art", "metal", "other"], when: a => a.place === "fr" }
+      ],
+      resolve: a => {
+        if (!a.place) return null;
+        if (a.place === "jp") return "domestic";
+        return a.kind ? "foreign" : null;
+      },
+      // 別表第一：書画骨とう・その他の動産は1個/1組10万円未満なら記載不要
+      excludable: a => a.place === "fr" && (a.kind === "art" || a.kind === "other")
+    },
+    other: {
+      questions: [
+        { id: "sub", opts: ["deposit_money", "partnership", "trust", "ip", "copyright", "derivative", "residual"] },
+        { id: "where", opts: ["jp", "fr"], when: a => a.sub && a.sub !== "residual" }
+      ],
+      resolve: a => {
+        if (!a.sub) return null;
+        if (a.sub === "residual") return "domestic"; // 規12③六：保有者の住所＝国内（居住者）
+        return a.where ? (a.where === "fr" ? "foreign" : "domestic") : null;
+      },
+      allowNegative: a => a.sub === "derivative"
+    }
+  },
+  // [FIX 6] 名前のついた7区分と、受け皿の「その他の財産」を分けて持つ。
+  // 文言の「7区分」はこの配列長から導くので、区分を足しても数字がずれない。
+  namedCats: ["realestate", "deposit", "securities", "loan", "insurance", "crypto", "movables"],
+  catchAll: "other"
+};
+RULES.catOrder = RULES.namedCats.concat([RULES.catchAll]);
+
+/* ============================================================================
+   2. I18N — 表示テキストは全てここに集約
+   ============================================================================ */
+const I18N = {
+ja: {
+  "app.kicker": "国税庁 No.7456 / 国外送金等調書法 第5条",
+  "app.title": "国外財産調書 提出義務チェッカー",
+  "app.sub": "12月31日時点の国外財産が5,000万円を超えるかを、財産ごとの「所在」判定から確認します。",
+  "ui.required": "必須",
+  "ui.yen": "円",
+  "ui.jp": "国内",
+  "ui.fr": "国外",
+
+  "act.reset": "入力をクリア",
+  "act.share": "入力条件をURLで共有",
+  "act.print": "印刷 / PDF出力",
+  "act.copied": "URLをコピーしました",
+  "act.copyfail": "コピーできませんでした。アドレスバーのURLをそのままコピーしてください。",
+
+  "s1.title": "あなたの立場",
+  "s1.q": "その年の12月31日時点で、次のどれに当たりますか",
+  "s1.help": "「居住者」＝国内に住所があるか、現在まで引き続き1年以上居所がある個人。「非永住者」＝居住者のうち日本国籍がなく、過去10年以内に国内に住所または居所があった期間の合計が5年以下の個人。判定は12月31日の現況によります。",
+  "s1.opt.resident": "居住者（非永住者ではない）",
+  "s1.opt.resident.n": "国外財産調書の対象になり得ます",
+  "s1.opt.nonperm": "非永住者",
+  "s1.opt.nonperm.n": "制度の対象外です",
+  "s1.opt.nonres": "非居住者",
+  "s1.opt.nonres.n": "制度の対象外です",
+  "s1.disc": "死亡・出国による提出免除を反映する",
+  "s1.disc.who": "対象年の翌年1月1日から6月30日までの間に、ご本人が亡くなった、または日本を出国した場合だけ開いてください。ほとんどの方は開かずに次へ進めます。",
+  "s1.exempt": "翌年1月1日から6月30日までの間に、調書を提出しないで死亡した、または出国した",
+  "s1.exemptHelp": "この場合、国外財産調書の提出は要しないこととされています（法5①ただし書）。「出国」とは、納税管理人の届出をしないで国内に住所および居所を有しないこととなること等をいいます。",
+
+  "s2.title": "対象年",
+  "s2.q": "どの年分を判定しますか",
+  "s2.help": "判定はその年の12月31日時点の現況で行い、調書はその翌年に提出します。令和5年分（2023年分）以後の提出期限は翌年6月30日です。令和4年分（2022年分）以前は翌年3月15日でした。",
+  "s2.disc": "相続開始年の特例を使う",
+  "s2.disc.who": "選んだ年に相続が開始し、相続または遺贈で国外財産を取得した方だけ開いてください。該当しなければ開かずに次へ進めます。",
+  "s2.inherit": "この年に相続が開始した（相続国外財産を除いて判定する）",
+  "s2.inheritHelp": "相続開始年の年分の調書は、相続または遺贈で取得した国外財産（相続国外財産）を記載しないで提出できます。この場合、提出義務も相続国外財産を除いて判定します（法5②）。チェックすると、各財産に「相続国外財産」の指定欄が出ます。",
+  "s2.yearLabel": "{y}年分（令和{r}年分）",
+  "s2.yearLabelNow": "{y}年分（令和{r}年分・進行中）",
+
+  "s3.title": "国外にあるかもしれない財産",
+  "s3.intro": "<b>この制度の要は金額ではなく「所在」です。</b>国内支店に置いた外貨預金は国外財産になりませんし、日本企業の株式でも国外の証券口座にあれば国外財産になります。財産を1件ずつ足して、区分ごとの設問に答えてください。上の{cats}つの区分に当てはまらないものは「その他の財産」を選び、その中から近いものを指定してください。",
+  "s3.add": "＋ 財産を追加",
+  "s3.disc": "円換算レート（TTB）の調べ方と入れ方",
+  "s3.disc.who": "外貨建ての財産を入力する方向けです。日本円の財産だけなら開く必要はありません。まずは概算値でも判定できます。",
+  "s3.selectCat": "区分を選ぶ…",
+
+  "rate.h1": "何のレートを使うのか",
+  "rate.p1": "その年の12月31日における最終の対顧客直物電信買相場（TTB）で円換算します。同日に相場がなければ、同日前の最も近い日の相場によります。使うのは<b>あなたの取引金融機関が公表した</b>TTBです（通達5-14）。",
+  "rate.p2": "<b>不動産や動産のように金融機関と結びつかない財産でも同じです。</b>ここでいう「取引金融機関」とは、その財産を預けている先ではなく、<b>あなたが取引している金融機関</b>という意味です。海外の不動産でも、ご自身のメインバンクが公表したTTBで換算します。",
+  "rate.p3": "<b>預貯金だけは例外です。</b>取引金融機関が特定されているので、その預金を<b>預け入れている金融機関</b>が公表した相場を使います。",
+  "rate.h2": "どこで調べるか",
+  "rate.l1": "<b>最も確実</b> — 取引金融機関の残高証明書や年間取引報告書。または、その金融機関のサイトにある「外国為替相場」「ヒストリカルレート」「過去の相場」といったページ",
+  "rate.l2": "<b>目安として</b> — 三菱UFJ銀行の最終公表相場を日別に掲載しているサイト（このページ下部の「参考リンク」）。ご自身の取引金融機関が三菱UFJ銀行でなければ、あくまで概算の目安です",
+  "rate.l3": "一部の通貨はTTBが参考相場としてしか公表されていません。その場合は取引金融機関に確認してください",
+  "rate.h3": "まずは概算で構いません",
+  "rate.p4": "このツールの目的は提出の要否を掴むことです。<b>合計額が5,000万円の線から遠ければ、レートが多少ずれても判定は変わりません。</b>まずは覚えている概算値を入れて、判定パネルのゲージを見てください。",
+  "rate.p5": "<b>ゲージが5,000万円の線に近づいたときだけ</b>、正確な数値を取りに行けば十分です。線をまたぐかどうかが微妙な場合は、そこで初めて正式なTTBと評価額を揃え、税理士に相談してください。",
+
+  "cat.realestate": "不動産（土地・建物・山林）",
+  "cat.deposit": "預貯金",
+  "cat.securities": "有価証券（株式・公社債・投資信託等）",
+  "cat.loan": "貸付金・未収入金",
+  "cat.insurance": "保険・年金に関する権利",
+  "cat.crypto": "暗号資産・NFT",
+  "cat.movables": "現金・動産・貴金属類",
+  "cat.other": "その他の財産（上記{cats}区分以外）",
+
+  "q.realestate.loc": "その不動産はどこにありますか",
+  "q.realestate.loc.jp": "国内",
+  "q.realestate.loc.fr": "国外",
+  "q.realestate.loc.note": "所在地そのもので判定します（相続税法10①一）。国内の事業者を通じて購入した国外不動産も国外財産です。",
+
+  "q.deposit.branch": "口座を開設した金融機関の営業所（支店）はどこにありますか",
+  "q.deposit.branch.jp": "国内の営業所・支店",
+  "q.deposit.branch.jp.n": "外貨預金でも、外国銀行の在日支店でも国外財産になりません",
+  "q.deposit.branch.fr": "国外の営業所・支店",
+  "q.deposit.branch.note": "円建て・外貨建てを問わず、預入れをした金融機関の営業所の所在で判定します（FAQ Q22）。",
+
+  "q.securities.issuer": "発行体はどれですか",
+  "q.securities.issuer.jpco": "本店・主たる事務所が国内にある法人",
+  "q.securities.issuer.frco": "本店・主たる事務所が国外にある法人",
+  "q.securities.issuer.jpbond": "日本の国債・地方債",
+  "q.securities.issuer.frbond": "外国・外国の地方公共団体等が発行する公債",
+  "q.securities.account": "どこの口座で管理していますか",
+  "q.securities.account.jpacc": "国内の金融商品取引業者等の口座",
+  "q.securities.account.fracc": "国外の金融商品取引業者等の口座",
+  "q.securities.account.none": "口座で管理していない（現物保有など）",
+  "q.securities.note": "口座（振替口座簿）で管理されている場合は、発行体ではなく口座を開設した営業所の所在で判定します（令10②、規12③④、FAQ Q23）。国外口座にあれば日本企業の株式でも国外財産、国内口座にあれば外国株でも国外財産になりません。",
+
+  "q.loan.debtor": "債務者（貸付先）の住所・本店はどこですか",
+  "q.loan.debtor.jp": "国内",
+  "q.loan.debtor.fr": "国外",
+  "q.loan.debtor.note": "貸付金は債務者の住所または本店の所在で判定します（相続税法10①七、FAQ Q26）。債務者が2以上あるときは主たる債務者で判定します。",
+
+  "q.insurance.insurer": "保険会社等の本店・主たる事務所はどこにありますか",
+  "q.insurance.insurer.jp": "国内",
+  "q.insurance.insurer.fr": "国外",
+  "q.insurance.insurer.note": "価額は、その年の12月31日に解約した場合の解約返戻金の額として差し支えありません（通達5-10⒀イ）。国外で加入した確定拠出型年金も同様に扱えます（FAQ Q31）。",
+
+  "q.crypto.auto": "暗号資産・NFTは保有者の住所で所在を判定します。あなたは居住者なので、<b>国外の取引所やマーケットプレイスに置いていても「国内にある財産」</b>となり、国外財産調書の対象にはなりません（規12③六、FAQ Q36・Q37）。金額は判定に加算されません。",
+
+  "q.movables.place": "その財産はどこで保管していますか",
+  "q.movables.place.jp": "国内",
+  "q.movables.place.fr": "国外",
+  "q.movables.kind": "種類はどれですか",
+  "q.movables.kind.cash": "現金",
+  "q.movables.kind.art": "書画骨とう・美術工芸品",
+  "q.movables.kind.metal": "貴金属類（金・白金・ダイヤモンド等）",
+  "q.movables.kind.other": "その他の動産（家具・什器・自動車・船舶等）",
+  "q.movables.kind.note": "指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
+  "q.movables.exclude": "1個または1組の価額が10万円未満（または取得価額100万円未満の家庭用動産）",
+  "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ Q27・Q28）。",
+
+  "q.other.sub": "内訳はどれに当たりますか",
+  "q.other.sub.deposit_money": "預託金・委託証拠金その他の保証金",
+  "q.other.sub.partnership": "組合契約等・匿名組合契約に基づく出資",
+  "q.other.sub.trust": "信託に関する権利",
+  "q.other.sub.ip": "特許権・実用新案権・意匠権・商標権等（登録されているもの）",
+  "q.other.sub.copyright": "著作権・出版権・著作隣接権（目的物が発行されているもの）",
+  "q.other.sub.derivative": "未決済信用取引等・未決済デリバティブ取引に係る権利",
+  "q.other.sub.residual": "上記のいずれにも当たらない財産",
+  "q.other.sub.note": "実際の国外財産調書は規則別表第一の15区分で記載します。このツールは入力を減らすため、名前のついた{cats}区分と、この受け皿にまとめています。",
+  "q.other.where.deposit_money": "預託金等を受け入れた営業所・事務所はどこにありますか",
+  "q.other.where.partnership": "その事業を行う主たる事務所・事業所はどこにありますか",
+  "q.other.where.trust": "その信託を引き受けた営業所・事務所はどこにありますか",
+  "q.other.where.ip": "登録をした機関はどこにありますか",
+  "q.other.where.copyright": "これを発行する営業所・事業所はどこにありますか",
+  "q.other.where.derivative": "取引の相手方である金融商品取引業者等の営業所はどこにありますか",
+  "q.other.where.jp": "国内",
+  "q.other.where.fr": "国外",
+  "q.other.residualNote": "これらに当たらない財産は、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
+  "q.other.derivativeNote": "含み損がある場合は<b>マイナスの見積価額</b>として入力できます。合計額の判定では他の財産と通算します（FAQ Q3）。12月31日に決済したとみなして算出した利益または損失の額を入れてください。",
+
+  "row.currency": "通貨",
+  "row.ccyOther": "その他…",
+  "row.ccyFree": "通貨コード（自由入力）",
+  "row.amount": "12/31時点の価額",
+  "row.rate": "12/31のTTB",
+  "row.jpy": "円換算額",
+  "row.label": "名称・メモ（任意）",
+  "row.labelPh": "例）〇〇銀行シンガポール支店 普通預金",
+  "row.detail": "持分・相続国外財産の指定",
+  "row.detail.who": "その財産の持分が100％でない場合（共有名義、未分割の相続財産など）だけ開いてください。単独で所有していれば開く必要はありません。",
+  "row.detail.whoInh": "その財産の持分が100％でない場合（共有名義、未分割の相続財産など）、またはこの財産が相続国外財産である場合に開いてください。単独で所有し、相続で取得したものでなければ開く必要はありません。",
+  "row.share": "自分の持分（％）",
+  "row.shareHelp": "空欄なら100％として計算します。共有財産で持分が定まっていない場合は、各共有者の持分は相等しいものと推定します。夫婦の共有名義で持分不明なら50を入れてください。未分割の相続財産は法定相続分で按分します（通達5-15、FAQ Q15・Q16）。",
+  "row.inherited": "この財産は相続国外財産（この年の相続・遺贈で取得した国外財産）",
+  "row.remove": "この財産を削除",
+  "row.empty": "まだ財産が入力されていません。下のボタンから1件ずつ追加してください。",
+
+  "v.foreign": "国外財産です。合計額に算入します。",
+  "v.domestic": "国外財産に当たりません。合計額に算入しません。",
+  "v.excluded": "記載不要のため、合計額から除いています。",
+  "v.inherited": "相続国外財産として、この年分の判定から除いています。",
+  "seal.foreign": "国外",
+  "seal.domestic": "国内",
+  "seal.foreign.n": "対象",
+  "seal.domestic.n": "対象外",
+
+  "p.lab": "Live judgment",
+  "p.title": "判定",
+  "p.total": "国外財産の合計額",
+  "p.more": "詳細を表示 / 隠す",
+  "p.threshold": "5,000万円",
+
+  "j.na": "未入力",
+  "j.na.why": "「あなたの立場」を選ぶと判定を始めます。",
+  "j.nonperm": "対象外",
+  "j.nonperm.why": "非永住者は国外財産調書の提出義務者から除かれています（法5①）。金額にかかわらず提出は不要です。",
+  "j.nonres": "対象外",
+  "j.nonres.why": "国外財産調書は居住者が提出する制度です。非居住者に提出義務はありません（法5①）。",
+  "j.exempt": "提出不要",
+  "j.exempt.why": "翌年1月1日から6月30日までに調書を提出しないで死亡または出国した場合、提出を要しないこととされています（法5①ただし書）。",
+  "j.norows": "未入力",
+  "j.norows.why": "財産を1件以上入力すると判定できます。",
+  "j.pending": "回答待ち",
+  "j.pending.why": "{n}件の財産で所在の設問が未回答です。未回答のまま合計しても正しい判定になりません。",
+  "j.yes": "提出義務あり",
+  "j.yes.why": "12月31日時点の国外財産の合計額が5,000万円を<b>超えて</b>います。翌年の期限までに国外財産調書と合計表を提出してください。",
+  "j.no": "提出義務なし",
+  "j.no.why": "12月31日時点の国外財産の合計額が5,000万円<b>以下</b>です。しきい値は「以上」ではなく「超」なので、ちょうど5,000万円なら義務はありません。",
+  "j.close": "しきい値まであと{v}円です。評価額の見直しや為替の変動で超える可能性があります。",
+
+  "c.progress": "{y}年12月31日時点の現況で判定します。この年はまだ終わっていないため、いまの数字は見込みです。",
+  "c.left": "提出期限（{d}）まであと{n}日です。",
+  "c.soon": "提出期限（{d}）まであと{n}日です。",
+  "c.today": "今日が提出期限（{d}）です。",
+  "c.past": "提出期限（{d}）を{n}日過ぎています。",
+  "c.pastNote": "期限後でも、調査通知がある前に提出すれば期限内提出とみなされる場合があります。下の「期限を過ぎてしまった場合」をご覧ください。",
+
+  "kv.year": "対象年",
+  "kv.deadline": "提出期限",
+  "kv.rows": "国外財産の件数",
+  "kv.excluded": "除外した財産",
+  "kv.rowsUnit": "{n}件",
+
+  "r.title.yes": "提出義務があります",
+  "r.title.no": "提出義務はありません",
+  "r.sub.yes": "{y}年分（令和{r}年分）／期限 {d}",
+  "r.sub.no": "{y}年分（令和{r}年分）",
+
+  "r.breakdown": "内訳",
+  "r.bd.item": "財産",
+  "r.bd.cat": "区分",
+  "r.bd.verdict": "所在",
+  "r.bd.amount": "円換算額",
+  "r.bd.total": "国外財産 合計",
+  "r.bd.untitled": "（名称なし）",
+
+  "r.deadline": "期限と提出先",
+  "r.deadlineBody": "<b>{d}</b>までに提出します。提出先は、所得税の確定申告をする方（またはできる方）は所得税の納税地を所轄する税務署長、それ以外の方は住所地（国内に住所がないときは居所地）を所轄する税務署長です。",
+  "r.deadlineRoll": "本来の期限は{orig}ですが、土日に当たるため翌開庁日の{d}になります。",
+  "r.deadlineOld": "令和4年分（2022年分）以前の提出期限は翌年3月15日です。6月30日への変更は令和5年分（2023年分）からです。",
+
+  "r.docs": "必要書類",
+  "r.docs.1": "<b>国外財産調書</b>（財産の区分・種類・用途（一般用／事業用）・所在・数量・価額を記載）",
+  "r.docs.2": "<b>国外財産調書合計表</b>（記載した財産の価額を区分ごとに合計したもの。添付が必要です）",
+  "r.docs.3": "いずれもe-Taxで提出できます。",
+  "r.docs.note": "所在欄には国名と住所等のほか、区分によって金融機関名・支店名や債務者名等の記載が必要です。国名は一般に広く使われている略称で差し支えありません。",
+
+  "r.penalty": "出し忘れると何が起きるか",
+  "r.pen.light": "<b>期限内に提出していれば</b> — その調書に記載がある国外財産について所得税・相続税の申告漏れが生じても、その部分の過少申告加算税・無申告加算税が<b>5％軽減</b>されます。",
+  "r.pen.heavy": "<b>期限内に提出していない／記載がない場合</b> — その国外財産について申告漏れが生じたときは、その部分の加算税が<b>5％加重</b>されます。",
+  "r.pen.docs": "<b>調査で資料を出さないと</b> — 国外財産の取得・運用・処分に係る書類の提示等を求められ、指定期限（求められた日から60日以内で指定）までに応じなかった場合、軽減措置は適用されず、加重割合は5％から<b>10％</b>に上がります。",
+  "r.pen.crim": "<b>罰則</b> — 偽りの記載をして提出した場合、または正当な理由がなく期限までに提出しなかった場合、<b>1年以下の拘禁刑または50万円以下の罰金</b>に処されることがあります（未提出については情状により刑を免除できるとされています）。",
+
+  "r.late": "期限を過ぎてしまった場合",
+  "r.lateBody": "期限後に提出した場合でも、その国外財産に係る所得税・相続税について<b>調査通知がある前</b>に提出したものであれば、期限内に提出されたものとみなされ、軽減措置の適用を受けられる場合があります（法6⑥。令和6年1月1日以後は調査通知前に限られます）。記載内容に誤りや漏れがあったときも、期限後に再提出することで訂正できます。その際は<b>誤りのあった財産だけでなく、全ての国外財産を記載し直す</b>必要があります。",
+
+  "r.valuation": "価額の出し方",
+  "r.valBody": "12月31日における<b>時価</b>、または時価に準ずるものとしての<b>見積価額</b>によります。時価の算定が難しい場合は見積価額で差し支えありません。財産評価基本通達による評価額でも構いません。",
+  "r.val.1": "預貯金 — 12月31日の預入高（期間満了前の定期預金は契約時の元本額で差し支えありません）",
+  "r.val.2": "上場株式等 — 取引所が公表する12月31日の最終価格（同日に価格がなければ直近の最終価格）",
+  "r.val.3": "土地・建物 — 外国の固定資産税に相当する租税の課税標準額、取得価額に合理的な価格変動率を乗じた額、翌年1月1日から提出期限までに譲渡した場合の譲渡価額 等",
+  "r.val.4": "保険 — 12月31日に解約した場合の解約返戻金の額",
+  "r.val.debt": "<b>債務は差し引けません。</b>借入金で取得した国外財産でも、借入金元本を控除せずに時価または見積価額で記載します。1億円の海外不動産を1億円の借入で買っていても、1億円として判定します（FAQ Q39）。",
+
+  "r.other": "混同しやすい別制度",
+  "r.otherBody": "<b>財産債務調書</b>は国外財産調書とは別の制度です。国外財産調書を提出する方でも、要件に当たれば財産債務調書の提出も必要です。<br>対象は、①所得税の確定申告書を提出すべき方等で、退職所得を除く各種所得金額の合計額が2,000万円を超え、かつ12月31日時点で価額の合計額が3億円以上の財産または1億円以上の国外転出特例対象財産を有する場合、②令和5年分以後は、所得を問わず12月31日時点で10億円以上の財産を有する居住者。<br>なお、国外財産調書を提出する場合、財産債務調書には国外財産に係る事項（価額を除く）の記載を要しません。ただし国外にある債務は財産債務調書に記載する必要があります。このツールは財産債務調書の判定は行いません。",
+
+  "r.next": "次にすること",
+  "r.next.1": "各財産の12月31日の価額と、取引金融機関が公表したその日のTTBを、資料（残高証明書・ステートメント等）で確認する",
+  "r.next.2": "国税庁の様式と記載例を確認する",
+  "r.next.3": "判定が微妙な場合や国外財産の評価に迷う場合は、税理士に相談する",
+
+  "disc.title": "免責",
+  "disc.body": "このツールは制度の理解を助けるための簡易チェックであり、税務上の助言ではありません。作成者は税理士ではなく、判定結果の正確性・完全性について責任を負いません。財産の所在や評価には個別の事情による例外が多くあります。実際の提出要否と記載内容は、必ず国税庁の一次情報を確認のうえ、税理士または所轄税務署にご相談ください。",
+
+  "f.sources": "出典（一次情報）",
+  "f.ref": "参考リンク",
+  "f.scope": "このツールが扱う範囲",
+  "f.scopeBody": "居住者（非永住者を除く）の国外財産調書の提出義務判定のみを扱います。財産債務調書の判定、国外転出時課税、見積価額の算定計算（減価償却・複利現価等）、為替レートの自動取得は行いません。入力内容はブラウザの外に送信されず、保存もされません。共有URLを作った場合のみ、入力条件がURLの中に含まれます。",
+  "f.updated": "内容更新日 {u} ／ 準拠：タックスアンサー No.7456（{tb}）、国外財産調書制度（FAQ）（{fb}）",
+  "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved.·無断複製・再配布を禁じます",
+
+  "src.nta7456": "国税庁 タックスアンサー No.7456 国外財産調書の提出義務",
+  "src.faq": "国税庁 国外財産調書制度（FAQ）（PDF）",
+  "src.pamph": "国税庁 国外財産調書制度に関するお知らせ",
+  "src.form": "国税庁 ［手続名］国外財産調書（同合計表）",
+  "src.etax": "e-Tax（国税電子申告・納税システム）",
+  "ref.murc": "三菱UFJリサーチ&コンサルティング 外国為替相場（1990年以降の日別TTB）",
+  "ref.murc.n": "三菱UFJ銀行の最終公表相場の転載です。同社サイト自身も参考値である旨を明示しています。ご自身の取引金融機関が三菱UFJ銀行でない場合は、概算の目安としてご利用ください。"
+},
+en: {
+  "app.kicker": "NTA No.7456 / Overseas Remittance Reports Act, Art. 5",
+  "app.title": "Foreign Asset Report — Filing Checker",
+  "app.sub": "For Japanese tax residents. Checks whether your foreign assets exceed JPY 50 million as of 31 December, starting from where each asset is legally located.",
+  "ui.required": "Required",
+  "ui.yen": "JPY",
+  "ui.jp": "Japan",
+  "ui.fr": "Outside Japan",
+
+  "act.reset": "Clear",
+  "act.share": "Share inputs by URL",
+  "act.print": "Print / Save as PDF",
+  "act.copied": "URL copied",
+  "act.copyfail": "Could not copy. Please copy the URL from the address bar.",
+
+  "s1.title": "Your status",
+  "s1.q": "As of 31 December, which describes you?",
+  "s1.help": "A resident has a domicile in Japan or has had a residence there for one year or more. A non-permanent resident is a resident without Japanese nationality who has had a domicile or residence in Japan for five years or less within the past ten years. Status is judged as of 31 December.",
+  "s1.opt.resident": "Resident (not a non-permanent resident)",
+  "s1.opt.resident.n": "May be required to file",
+  "s1.opt.nonperm": "Non-permanent resident",
+  "s1.opt.nonperm.n": "Outside the scope of this regime",
+  "s1.opt.nonres": "Non-resident",
+  "s1.opt.nonres.n": "Outside the scope of this regime",
+  "s1.disc": "Apply the death / departure exemption",
+  "s1.disc.who": "Open this only if the person died or left Japan between 1 January and 30 June of the following year. Most people can skip it.",
+  "s1.exempt": "Died or left Japan between 1 January and 30 June of the following year without filing",
+  "s1.exemptHelp": "No filing is required in this case (Art. 5(1) proviso).",
+
+  "s2.title": "Tax year",
+  "s2.q": "Which year are you checking?",
+  "s2.help": "The test is applied as of 31 December, and the report is filed the following year. For 2023 onwards the deadline is 30 June of the following year; for 2022 and earlier it was 15 March.",
+  "s2.disc": "Use the year-of-inheritance rule",
+  "s2.disc.who": "Open this only if an inheritance commenced in the selected year and you acquired foreign assets through it. Otherwise skip it.",
+  "s2.inherit": "An inheritance commenced this year (exclude inherited foreign assets)",
+  "s2.inheritHelp": "For the year an inheritance commences, foreign assets acquired by inheritance or bequest may be left out of the report, and the filing test is applied excluding them (Art. 5(2)).",
+  "s2.yearLabel": "{y} (Reiwa {r})",
+  "s2.yearLabelNow": "{y} (Reiwa {r} — in progress)",
+
+  "s3.title": "Assets that may be located outside Japan",
+  "s3.intro": "<b>This regime turns on location, not size.</b> Foreign-currency deposits at a Japanese branch are not foreign assets; shares in a Japanese company held in an overseas securities account are. Add each asset and answer the questions for its category. Anything outside the {cats} named categories goes under \"Other assets\", where you pick the closest match.",
+  "s3.add": "+ Add an asset",
+  "s3.disc": "Finding and entering the conversion rate (TTB)",
+  "s3.disc.who": "For foreign-currency assets. If everything is in yen, you can skip this. A rough figure is enough to start.",
+  "s3.selectCat": "Choose a category…",
+
+  "rate.h1": "Which rate applies",
+  "rate.p1": "Convert at the final TTB (telegraphic transfer buying) rate on 31 December, or the nearest preceding date if there was none. Use the rate published by <b>the bank you deal with</b>.",
+  "rate.p2": "<b>This holds even for assets with no bank attached, such as property.</b> \"The bank you deal with\" means your own bank, not one connected to the asset. Overseas property is converted at your own bank's published TTB.",
+  "rate.p3": "<b>Deposits are the exception.</b> Use the rate published by the bank actually holding the deposit.",
+  "rate.h2": "Where to find it",
+  "rate.l1": "<b>Most reliable</b> — your bank's balance certificate or annual statement, or the historical rates page on its website",
+  "rate.l2": "<b>As a guide</b> — the daily rates published by MUFG Bank (see \"Reference links\" at the foot of this page). If MUFG is not your bank, treat these as approximate",
+  "rate.l3": "For some currencies the TTB is published for reference only. Ask your bank in that case",
+  "rate.h3": "A rough figure is fine to start",
+  "rate.p4": "The point is to find out whether you need to file. <b>If your total sits well away from the JPY 50 million line, a slightly wrong rate will not change the answer.</b> Enter your best estimate and watch the gauge.",
+  "rate.p5": "<b>Only when the gauge approaches the line</b> do you need exact figures. If it is close to crossing, that is the moment to gather the official rates and valuations and talk to a tax accountant.",
+
+  "cat.realestate": "Real estate (land, buildings, forest)",
+  "cat.deposit": "Deposits and savings",
+  "cat.securities": "Securities (shares, bonds, funds)",
+  "cat.loan": "Loans receivable / accounts receivable",
+  "cat.insurance": "Insurance and annuity rights",
+  "cat.crypto": "Crypto assets and NFTs",
+  "cat.movables": "Cash, movables, precious metals",
+  "cat.other": "Other assets (outside the {cats} above)",
+
+  "q.realestate.loc": "Where is the property located?",
+  "q.realestate.loc.jp": "In Japan",
+  "q.realestate.loc.fr": "Outside Japan",
+  "q.realestate.loc.note": "Judged by the location of the property itself.",
+
+  "q.deposit.branch": "Where is the branch that accepted the deposit?",
+  "q.deposit.branch.jp": "A branch in Japan",
+  "q.deposit.branch.jp.n": "Not a foreign asset, even in foreign currency, and even at a foreign bank's Japan branch",
+  "q.deposit.branch.fr": "A branch outside Japan",
+  "q.deposit.branch.note": "Judged by the location of the branch that accepted the deposit, regardless of currency (FAQ Q22).",
+
+  "q.securities.issuer": "What is the issuer?",
+  "q.securities.issuer.jpco": "A company headquartered in Japan",
+  "q.securities.issuer.frco": "A company headquartered outside Japan",
+  "q.securities.issuer.jpbond": "Japanese government or municipal bonds",
+  "q.securities.issuer.frbond": "Public bonds issued by a foreign government or municipality",
+  "q.securities.account": "Where is the account holding them?",
+  "q.securities.account.jpacc": "An account at a financial instruments business in Japan",
+  "q.securities.account.fracc": "An account at a financial instruments business outside Japan",
+  "q.securities.account.none": "Not held in an account",
+  "q.securities.note": "If held in a book-entry account, the account's location overrides the issuer's (FAQ Q23). Japanese shares in an overseas account are foreign assets; foreign shares in a Japanese account are not.",
+
+  "q.loan.debtor": "Where is the debtor's address or head office?",
+  "q.loan.debtor.jp": "In Japan",
+  "q.loan.debtor.fr": "Outside Japan",
+  "q.loan.debtor.note": "Judged by the debtor's address or head office (FAQ Q26).",
+
+  "q.insurance.insurer": "Where is the insurer's head office?",
+  "q.insurance.insurer.jp": "In Japan",
+  "q.insurance.insurer.fr": "Outside Japan",
+  "q.insurance.insurer.note": "The surrender value as of 31 December may be used as the asset's value.",
+
+  "q.crypto.auto": "Crypto assets and NFTs are located at the <b>holder's</b> address. As a resident of Japan, yours count as domestic assets even when held on an overseas exchange, so they are <b>not</b> reportable here (FAQ Q36, Q37). The amount is not added to the total.",
+
+  "q.movables.place": "Where is it kept?",
+  "q.movables.place.jp": "In Japan",
+  "q.movables.place.fr": "Outside Japan",
+  "q.movables.kind": "What kind is it?",
+  "q.movables.kind.cash": "Cash",
+  "q.movables.kind.art": "Art, antiques, craft works",
+  "q.movables.kind.metal": "Precious metals (gold, platinum, diamonds)",
+  "q.movables.kind.other": "Other movables (furniture, vehicles, vessels)",
+  "q.movables.kind.note": "Jewellery for personal use is treated as \"other movables\".",
+  "q.movables.exclude": "Worth less than JPY 100,000 per item or set (or a household item costing under JPY 1 million)",
+  "q.movables.excludeNote": "Items under JPY 100,000 per item or set need not be reported and may be left out of the total.",
+
+  "q.other.sub": "Which of these is it?",
+  "q.other.sub.deposit_money": "Deposits, margin, or other security money",
+  "q.other.sub.partnership": "Partnership or silent partnership contributions",
+  "q.other.sub.trust": "Trust interests",
+  "q.other.sub.ip": "Registered patents, utility models, designs, trademarks",
+  "q.other.sub.copyright": "Copyright, publication rights, neighbouring rights",
+  "q.other.sub.derivative": "Open margin transactions or derivative positions",
+  "q.other.sub.residual": "None of the above",
+  "q.other.sub.note": "The actual report uses 15 statutory categories. This tool groups them into {cats} named categories plus this catch-all to reduce input.",
+  "q.other.where.deposit_money": "Where is the office that received the money?",
+  "q.other.where.partnership": "Where is the principal office running the business?",
+  "q.other.where.trust": "Where is the office that accepted the trust?",
+  "q.other.where.ip": "Where is the registering authority?",
+  "q.other.where.copyright": "Where is the office publishing the work?",
+  "q.other.where.derivative": "Where is the counterparty's office?",
+  "q.other.where.jp": "In Japan",
+  "q.other.where.fr": "Outside Japan",
+  "q.other.residualNote": "Anything else is located at the holder's address. As a resident, that means Japan, so it is not reportable.",
+  "q.other.derivativeNote": "Unrealised losses may be entered as a <b>negative</b> value and are netted against other assets in the test (FAQ Q3).",
+
+  "row.currency": "Currency",
+  "row.ccyOther": "Other…",
+  "row.ccyFree": "Currency code",
+  "row.amount": "Value at 31 Dec",
+  "row.rate": "TTB at 31 Dec",
+  "row.jpy": "Converted value",
+  "row.label": "Name / note (optional)",
+  "row.labelPh": "e.g. Savings account, Singapore branch",
+  "row.detail": "Ownership share and inherited assets",
+  "row.detail.who": "Open this only if your share is less than 100% — joint ownership, undivided inherited property. Skip it if you own the asset outright.",
+  "row.detail.whoInh": "Open this if your share is less than 100%, or if this asset was inherited this year. Skip it otherwise.",
+  "row.share": "Your ownership share (%)",
+  "row.shareHelp": "Left blank, this is treated as 100%. Where a share is undetermined, co-owners' shares are presumed equal. Undivided inherited property is apportioned by statutory shares.",
+  "row.inherited": "This is an inherited foreign asset acquired this year",
+  "row.remove": "Remove this asset",
+  "row.empty": "No assets yet. Add them one at a time below.",
+
+  "v.foreign": "A foreign asset. Included in the total.",
+  "v.domestic": "Not a foreign asset. Excluded from the total.",
+  "v.excluded": "Not reportable, so excluded from the total.",
+  "v.inherited": "Excluded as an inherited foreign asset.",
+  "seal.foreign": "国外",
+  "seal.domestic": "国内",
+  "seal.foreign.n": "REPORT",
+  "seal.domestic.n": "EXEMPT",
+
+  "p.lab": "Live judgment",
+  "p.title": "Result",
+  "p.total": "Total foreign assets",
+  "p.more": "Show / hide details",
+  "p.threshold": "JPY 50m",
+
+  "j.na": "Not started",
+  "j.na.why": "Choose your status to begin.",
+  "j.nonperm": "Not applicable",
+  "j.nonperm.why": "Non-permanent residents are excluded from the filing requirement, whatever the amount.",
+  "j.nonres": "Not applicable",
+  "j.nonres.why": "Only residents file this report. Non-residents have no obligation.",
+  "j.exempt": "No filing required",
+  "j.exempt.why": "No filing is required where the person died or left Japan between 1 January and 30 June without filing.",
+  "j.norows": "Not started",
+  "j.norows.why": "Add at least one asset.",
+  "j.pending": "Awaiting answers",
+  "j.pending.why": "{n} asset(s) still have unanswered location questions. The total is incomplete until they are answered.",
+  "j.yes": "Filing required",
+  "j.yes.why": "Your foreign assets at 31 December <b>exceed</b> JPY 50 million. File the report and its summary table by the deadline.",
+  "j.no": "No filing required",
+  "j.no.why": "Your foreign assets at 31 December are JPY 50 million <b>or less</b>. The threshold is \"exceeding\", so exactly JPY 50 million creates no obligation.",
+  "j.close": "You are JPY {v} below the threshold. Revaluation or exchange-rate movement could push you over.",
+
+  "c.progress": "Judged on your position at 31 December {y}. That date has not arrived, so this is a projection.",
+  "c.left": "{n} days until the deadline ({d}).",
+  "c.soon": "{n} days until the deadline ({d}).",
+  "c.today": "Today is the deadline ({d}).",
+  "c.past": "The deadline ({d}) passed {n} days ago.",
+  "c.pastNote": "A late report may still be treated as filed on time if it is submitted before notice of an audit. See \"If the deadline has passed\" below.",
+
+  "kv.year": "Tax year",
+  "kv.deadline": "Deadline",
+  "kv.rows": "Foreign assets",
+  "kv.excluded": "Excluded items",
+  "kv.rowsUnit": "{n}",
+
+  "r.title.yes": "You are required to file",
+  "r.title.no": "You are not required to file",
+  "r.sub.yes": "{y} (Reiwa {r}) — due {d}",
+  "r.sub.no": "{y} (Reiwa {r})",
+
+  "r.breakdown": "Breakdown",
+  "r.bd.item": "Asset",
+  "r.bd.cat": "Category",
+  "r.bd.verdict": "Location",
+  "r.bd.amount": "Converted value",
+  "r.bd.total": "Total foreign assets",
+  "r.bd.untitled": "(untitled)",
+
+  "r.deadline": "Deadline and where to file",
+  "r.deadlineBody": "File by <b>{d}</b>. File with the tax office for your income tax place of payment if you file an income tax return, otherwise with the office for your address in Japan.",
+  "r.deadlineRoll": "The statutory date, {orig}, falls on a weekend, so the deadline moves to {d}.",
+  "r.deadlineOld": "For 2022 and earlier the deadline was 15 March of the following year. The move to 30 June applies from the 2023 tax year.",
+
+  "r.docs": "What to file",
+  "r.docs.1": "<b>The foreign asset report</b> — category, type, use, location, quantity and value of each asset",
+  "r.docs.2": "<b>The summary table</b> — values totalled by category. It must be attached.",
+  "r.docs.3": "Both can be filed through e-Tax.",
+  "r.docs.note": "The location field also needs bank and branch names, debtor names and similar details depending on the category.",
+
+  "r.penalty": "What happens if you don't file",
+  "r.pen.light": "<b>Filed on time</b> — if income or inheritance tax is later found to be understated on an asset listed in the report, the penalty tax on that part is <b>reduced by 5%</b>.",
+  "r.pen.heavy": "<b>Not filed on time, or the asset was omitted</b> — the penalty tax on that part is <b>increased by 5%</b>.",
+  "r.pen.docs": "<b>Documents withheld during an audit</b> — if you don't produce records on the acquisition, management or disposal of the asset by the date set (within 60 days), the reduction does not apply and the increase rises from 5% to <b>10%</b>.",
+  "r.pen.crim": "<b>Criminal penalty</b> — filing a false report, or failing to file without justifiable reason, can bring <b>imprisonment of up to one year or a fine of up to JPY 500,000</b>.",
+
+  "r.late": "If the deadline has passed",
+  "r.lateBody": "A late report is treated as filed on time — and the 5% reduction can still apply — if it is filed <b>before notice of an audit</b> (from 1 January 2024). Errors can be corrected by refiling, but a corrected report must list <b>all</b> foreign assets, not only the ones that were wrong.",
+
+  "r.valuation": "How to value assets",
+  "r.valBody": "Use the <b>market value</b> at 31 December, or an <b>estimated value</b> where market value is hard to determine.",
+  "r.val.1": "Deposits — the balance at 31 December",
+  "r.val.2": "Listed securities — the closing price on 31 December",
+  "r.val.3": "Land and buildings — foreign property-tax assessment base, acquisition cost adjusted by a reasonable index, or a sale price realised before the filing deadline",
+  "r.val.4": "Insurance — the surrender value at 31 December",
+  "r.val.debt": "<b>Debts are not deducted.</b> A property worth JPY 100 million bought with a JPY 100 million loan still counts as JPY 100 million (FAQ Q39).",
+
+  "r.other": "A different regime, easily confused",
+  "r.otherBody": "The <b>Assets and Liabilities Report</b> is separate. It applies where income (excluding retirement income) exceeds JPY 20 million and assets reach JPY 300 million, or JPY 100 million of exit-tax-covered assets; and from 2023, to any resident holding JPY 1 billion or more regardless of income. This tool does not test for it.",
+
+  "r.next": "Next steps",
+  "r.next.1": "Confirm each 31 December value and your bank's published TTB against statements",
+  "r.next.2": "Review the NTA's form and filled examples",
+  "r.next.3": "Consult a licensed tax accountant (zeirishi) where the call is close or valuation is unclear",
+
+  "disc.title": "Disclaimer",
+  "disc.body": "This is a simplified check to aid understanding, not tax advice. The author is not a licensed tax accountant and accepts no responsibility for the accuracy or completeness of the result. Location and valuation rules carry many exceptions. Confirm against the NTA's primary sources and consult a tax accountant or your tax office.",
+
+  "f.sources": "Primary sources",
+  "f.ref": "Reference links",
+  "f.scope": "Scope",
+  "f.scopeBody": "Covers only the filing test for the foreign asset report, for residents other than non-permanent residents. It does not test the Assets and Liabilities Report or exit tax, does not compute estimated values, and does not fetch exchange rates. Nothing you enter leaves your browser or is stored.",
+  "f.updated": "Content updated {u} — based on NTA No.7456 ({tb}) and the Foreign Asset Report FAQ ({fb})",
+  "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved. · Unauthorised reproduction or redistribution is prohibited.",
+
+  "src.nta7456": "NTA Tax Answer No.7456 — Obligation to file the foreign asset report",
+  "src.faq": "NTA — Foreign asset report FAQ (PDF, Japanese)",
+  "src.pamph": "NTA — About the foreign asset report regime",
+  "src.form": "NTA — Foreign asset report form and summary table",
+  "src.etax": "e-Tax",
+  "ref.murc": "MUFG Research & Consulting — daily foreign exchange rates since 1990 (Japanese)",
+  "ref.murc.n": "A reproduction of MUFG Bank's final published quotations, which that site itself flags as reference values. Use as an approximation if MUFG is not your bank."
+}
+};
+
+/* ============================================================================
+   3. STATE
+   ============================================================================ */
+let lang = "ja";
+let S = null;
+let seq = 0;
+
+/* [FIX 5] 年は毎年手で足すのではなく、現在の年から導く */
+function currentYear() { return new Date().getFullYear(); }
+function yearList() {
+  const out = [];
+  for (let y = RULES.yearFloor; y <= currentYear(); y++) out.push(y);
+  return out;
+}
+function defaultYear() {
+  const y = currentYear() - 1;
+  return y < RULES.yearFloor ? RULES.yearFloor : y;
+}
+function blankState() {
+  return { year: defaultYear(), residency: "", exempt: false, inherit: false, rows: [] };
+}
+function newRow() {
+  return { id: ++seq, cat: "", ans: {}, ccy: "JPY", amt: "", rate: "", share: "", excl: false, inh: false, label: "" };
+}
+
+/* ============================================================================
+   4. HELPERS
+   ============================================================================ */
+function t(key, vars) {
+  let s = (I18N[lang] && I18N[lang][key]);
+  if (s === undefined) s = (I18N.ja[key] !== undefined ? I18N.ja[key] : key);
+  // [FIX 6] {cats} は「名前のついた区分の数」。区分を足しても文言がずれない。
+  // {n} は件数・日数で使うので別名にしてある。
+  s = s.split("{cats}").join(RULES.namedCats.length);
+  if (vars) for (const k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+function has(key) { return I18N[lang][key] !== undefined || I18N.ja[key] !== undefined; }
+/* [FIX 1] 「…」で括った語は一続きの用語なので、行末で分断させない。
+   タグを跨ぐ場合（< > を含む）は対象外にして、既存のマークアップを壊さない。
+   el() を通す全ての描画に効く。 */
+function nb(html) {
+  return String(html).replace(/「[^」<>]{1,14}」/g, m => '<span class="nb">' + m + "</span>");
+}
+function el(tag, cls, html) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html !== undefined) n.innerHTML = nb(html);
+  return n;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmt(n) {
+  const neg = n < 0;
+  const s = Math.abs(Math.trunc(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return (neg ? "-" : "") + s;
+}
+function reiwa(y) { return y - 2018; }
+function yearLabel(y) {
+  return t(y === currentYear() ? "s2.yearLabelNow" : "s2.yearLabel", { y: y, r: reiwa(y) });
+}
+
+/** 提出期限。土日に当たれば翌開庁日へ（国税通則法10②）。6月30日・3月15日は国民の祝日に当たらない。 */
+function deadlineOf(year) {
+  const r = RULES.deadline;
+  const spec = year >= r.pivotYear ? r.newRule : r.oldRule;
+  const orig = new Date(year + 1, spec.m, spec.d);
+  const d = new Date(orig.getTime());
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return { orig, actual: d, rolled: d.getTime() !== orig.getTime(), oldRule: year < r.pivotYear };
+}
+/** [FIX 5] 対象年の12/31・提出期限と、今日との位置関係。
+    既定表示の年分の期限が既に過ぎている、という状況が普通に起きるため。 */
+function clockOf(year) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yearEnd = new Date(year, 11, 31);
+  const dl = deadlineOf(year);
+  if (today <= yearEnd) return { state: "progress", dl };
+  const days = Math.round((dl.actual - today) / 86400000);
+  if (days < 0) return { state: "past", days: -days, dl };
+  if (days === 0) return { state: "today", days: 0, dl };
+  return { state: days <= RULES.soonDays ? "soon" : "left", days, dl };
+}
+function fmtDate(d) {
+  if (lang === "ja") {
+    const w = "日月火水木金土"[d.getDay()];
+    return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日（" + w + "）";
+  }
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/* 1行の判定 */
+function rowVerdict(r) {
+  const c = RULES.categories[r.cat];
+  if (!c) return null;
+  return c.resolve(r.ans);
+}
+function rowExcludable(r) {
+  const c = RULES.categories[r.cat];
+  return !!(c && c.excludable && c.excludable(r.ans));
+}
+function rowAllowNegative(r) {
+  const c = RULES.categories[r.cat];
+  return !!(c && c.allowNegative && c.allowNegative(r.ans));
+}
+function rowJPY(r) {
+  const a = parseFloat(r.amt);
+  if (!isFinite(a)) return null;
+  const rate = r.ccy === "JPY" ? 1 : parseFloat(r.rate);
+  if (!isFinite(rate) || rate <= 0) return null;
+  let sh = parseFloat(r.share);
+  if (!isFinite(sh) || sh < 0 || sh > 100) sh = 100;
+  return Math.trunc(a * rate * (sh / 100));
+}
+/** 合計に算入されるか */
+function rowCounts(r) {
+  if (rowVerdict(r) !== "foreign") return false;
+  if (r.excl && rowExcludable(r)) return false;
+  if (S.inherit && r.inh) return false;
+  return true;
+}
+/** 設問が未回答の行か */
+function rowPending(r) {
+  if (!r.cat) return true;
+  return rowVerdict(r) === null;
+}
+
+function judge() {
+  if (!S.residency) return { code: "na" };
+  if (S.residency === "nonperm") return { code: "nonperm" };
+  if (S.residency === "nonres") return { code: "nonres" };
+  if (S.exempt) return { code: "exempt" };
+  if (!S.rows.length) return { code: "norows" };
+  const pending = S.rows.filter(rowPending).length;
+  let total = 0, cnt = 0, excl = 0;
+  S.rows.forEach(r => {
+    if (rowVerdict(r) === "foreign" && ((r.excl && rowExcludable(r)) || (S.inherit && r.inh))) excl++;
+    if (!rowCounts(r)) return;
+    const v = rowJPY(r);
+    if (v === null) return;
+    total += v; cnt++;
+  });
+  if (pending) return { code: "pending", n: pending, total, cnt, excl };
+  return { code: total > RULES.threshold ? "yes" : "no", total, cnt, excl };
+}
+function totalNow() {
+  let total = 0;
+  S.rows.forEach(r => { if (rowCounts(r)) { const v = rowJPY(r); if (v !== null) total += v; } });
+  return total;
+}
+
+/* ============================================================================
+   5. RENDER — rows
+   ============================================================================ */
+function renderRows() {
+  const host = document.getElementById("rows");
+  host.innerHTML = "";
+  if (!S.rows.length) {
+    host.appendChild(el("p", "help", esc(t("row.empty"))));
+    return;
+  }
+  S.rows.forEach((r, i) => host.appendChild(rowNode(r, i)));
+}
+
+function rowNode(r, i) {
+  const verdict = rowVerdict(r);
+  const node = el("div", "row" + (verdict === "foreign" ? " is-foreign" : verdict === "domestic" ? " is-domestic" : ""));
+  node.dataset.id = r.id;
+
+  /* header */
+  const hd = el("div", "row-hd");
+  hd.appendChild(el("span", "row-ix", String(i + 1).padStart(2, "0")));
+  const sel = el("select");
+  sel.setAttribute("aria-label", t("s3.selectCat"));
+  sel.appendChild(new Option(t("s3.selectCat"), ""));
+  RULES.catOrder.forEach(k => {
+    const o = new Option(t("cat." + k), k);
+    if (r.cat === k) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => { r.cat = sel.value; r.ans = {}; r.excl = false; refresh(true); };
+  hd.appendChild(sel);
+  const del = el("button", "row-del", "×");
+  del.type = "button";
+  del.title = t("row.remove");
+  del.setAttribute("aria-label", t("row.remove"));
+  del.onclick = () => { S.rows = S.rows.filter(x => x.id !== r.id); refresh(true); };
+  hd.appendChild(del);
+  node.appendChild(hd);
+
+  if (!r.cat) return node;
+
+  /* seal */
+  if (verdict) {
+    const seal = el("div", "seal " + (verdict === "foreign" ? "foreign" : "domestic") + (r._stamp ? " anim" : ""));
+    seal.setAttribute("aria-hidden", "true");
+    seal.innerHTML = '<span class="seal-in">' + t("seal." + verdict) + "<small>" + t("seal." + verdict + ".n") + "</small></span>";
+    node.appendChild(seal);
+    r._stamp = false;
+  }
+
+  const bd = el("div", "row-bd");
+  const cfg = RULES.categories[r.cat];
+
+  /* label */
+  const lf = el("div");
+  const ll = el("label", "mlab");
+  ll.textContent = t("row.label");
+  ll.style.cssText = "font-size:11px;color:var(--muted);display:block;margin-bottom:4px;letter-spacing:.04em";
+  const li = el("input");
+  li.type = "text"; li.value = r.label; li.placeholder = t("row.labelPh");
+  li.style.maxWidth = "calc(100% - 76px)";
+  li.oninput = () => { r.label = li.value; refresh(false); };
+  lf.appendChild(ll); lf.appendChild(li);
+  bd.appendChild(lf);
+
+  /* wizard */
+  const wiz = el("div", "wiz");
+  if (cfg.auto) {
+    wiz.appendChild(el("p", "verdict-note dom", t("q." + r.cat + ".auto")));
+  } else {
+    cfg.questions.forEach(q => {
+      if (q.when && !q.when(r.ans)) return;
+      wiz.appendChild(questionNode(r, q));
+    });
+  }
+  /* movables exclusion */
+  if (rowExcludable(r)) {
+    const w = el("div", "wiz-q");
+    const lab = el("label", "choice" + (r.excl ? " on" : ""));
+    const cb = el("input"); cb.type = "checkbox"; cb.checked = !!r.excl;
+    cb.onchange = () => { r.excl = cb.checked; refresh(true); };
+    const sp = el("span", "ctxt", esc(t("q.movables.exclude")) + '<span class="cnote">' + t("q.movables.excludeNote") + "</span>");
+    lab.appendChild(cb); lab.appendChild(sp);
+    w.appendChild(lab);
+    wiz.appendChild(w);
+  }
+  bd.appendChild(wiz);
+
+  /* verdict note */
+  if (verdict) {
+    let cls = verdict === "foreign" ? "for" : "dom";
+    let msg = t("v." + verdict);
+    if (verdict === "foreign" && r.excl && rowExcludable(r)) { cls = "exc"; msg = t("v.excluded"); }
+    else if (verdict === "foreign" && S.inherit && r.inh) { cls = "exc"; msg = t("v.inherited"); }
+    bd.appendChild(el("div", "verdict-note " + cls, msg));
+  }
+
+  /* money */
+  if (verdict) {
+    const neg = rowAllowNegative(r);
+    if (neg) bd.appendChild(el("p", "help", t("q.other.derivativeNote")));
+
+    const m = el("div", "money");
+    const ri = el("input");   // 先に生成する。通貨を変えたとき、行を作り直さずに直接触るため。
+
+    /** 円のときはレート欄を塞ぐ。行の再描画を伴わないので入力中でも呼べる。 */
+    function syncRate() {
+      const jpy = (r.ccy === "JPY");
+      ri.disabled = jpy;
+      ri.placeholder = jpy ? "—" : "0.00";
+      ri.style.background = jpy ? "#F4F6F7" : "";
+      ri.value = jpy ? "" : r.rate;
+    }
+
+    /* [FIX 2] 通貨は datalist 付きテキストではなく本物の <select>。
+       旧実装は oninput ごとに refresh(true) で全行を作り直しており、
+       フォーカスが飛んで1文字ずつしか消せず、一覧も開いた瞬間に閉じていた。 */
+    const custom = RULES.currencies.indexOf(r.ccy) < 0;
+    const c1 = el("div");
+    c1.appendChild(el("span", "mlab", esc(t("row.currency"))));
+    const cs = el("select");
+    cs.setAttribute("aria-label", t("row.currency"));
+    cs.style.fontFamily = "var(--mono)";
+    RULES.currencies.forEach(c => {
+      const o = new Option(c, c);
+      if (!custom && r.ccy === c) o.selected = true;
+      cs.appendChild(o);
+    });
+    const oth = new Option(t("row.ccyOther"), "__other");
+    if (custom) oth.selected = true;
+    cs.appendChild(oth);
+    cs.onchange = () => {
+      r.ccy = (cs.value === "__other") ? "" : cs.value;
+      refresh(true);          // 自由入力欄の出し入れがあるので、ここだけは作り直す
+    };
+    c1.appendChild(cs);
+
+    if (custom) {
+      const cf = el("input");
+      cf.type = "text"; cf.value = r.ccy; cf.placeholder = "XXX"; cf.maxLength = 4;
+      cf.setAttribute("list", "ccy-list");
+      cf.setAttribute("aria-label", t("row.ccyFree"));
+      cf.style.cssText = "margin-top:5px;text-align:center;font-family:var(--mono)";
+      cf.oninput = () => {
+        const up = cf.value.toUpperCase();
+        if (cf.value !== up) {           // 大文字化でキャレットが末尾へ飛ばないように
+          const at = cf.selectionStart;
+          cf.value = up;
+          cf.setSelectionRange(at, at);
+        }
+        r.ccy = up;
+        syncRate();
+        refresh(false);                  // 行は作り直さない＝フォーカスを保つ
+      };
+      c1.appendChild(cf);
+    }
+    m.appendChild(c1);
+
+    const c2 = el("div");
+    c2.appendChild(el("span", "mlab", esc(t("row.amount"))));
+    const ai = el("input");
+    ai.type = "number"; ai.value = r.amt; ai.step = "any"; ai.placeholder = "0";
+    if (!neg) ai.min = "0";
+    ai.setAttribute("aria-label", t("row.amount"));
+    ai.oninput = () => { r.amt = ai.value; refresh(false); };
+    c2.appendChild(ai);
+    m.appendChild(c2);
+
+    const c3 = el("div");
+    c3.appendChild(el("span", "mlab", esc(t("row.rate"))));
+    ri.type = "number"; ri.step = "any"; ri.min = "0";
+    ri.setAttribute("aria-label", t("row.rate"));
+    ri.oninput = () => { r.rate = ri.value; refresh(false); };
+    syncRate();
+    c3.appendChild(ri);
+    m.appendChild(c3);
+    bd.appendChild(m);
+
+    const v = rowJPY(r);
+    const out = el("div", "jpy-out");
+    out.appendChild(el("span", "", esc(t("row.jpy"))));
+    const b = el("b", v !== null && v < 0 ? "neg" : "");
+    b.className = "num" + (v !== null && v < 0 ? " neg" : "");
+    b.textContent = v === null ? "—" : fmt(v) + (lang === "ja" ? " 円" : " JPY");
+    out.appendChild(b);
+    bd.appendChild(out);
+
+    /* [FIX 3] 開く前に、誰が開くべきかを示す */
+    const d = el("details", "disc");
+    const sm = el("summary");
+    sm.appendChild(el("span", "disc-t", esc(t("row.detail"))));
+    sm.appendChild(el("span", "disc-who", esc(t(S.inherit ? "row.detail.whoInh" : "row.detail.who"))));
+    d.appendChild(sm);
+    const db = el("div", "disc-bd");
+
+    const sf = el("div", "field");
+    const sl = el("label", "lab"); sl.textContent = t("row.share"); sl.style.fontSize = "12.5px";
+    const si = el("input");
+    si.type = "number"; si.min = "0"; si.max = "100"; si.step = "any";
+    si.value = r.share; si.placeholder = "100"; si.style.maxWidth = "120px";
+    si.oninput = () => { r.share = si.value; refresh(false); };
+    sf.appendChild(sl); sf.appendChild(si);
+    sf.appendChild(el("p", "help", t("row.shareHelp")));
+    db.appendChild(sf);
+
+    if (S.inherit) {
+      const il = el("label", "choice" + (r.inh ? " on" : ""));
+      const ib = el("input"); ib.type = "checkbox"; ib.checked = !!r.inh;
+      ib.onchange = () => { r.inh = ib.checked; refresh(true); };
+      il.appendChild(ib);
+      il.appendChild(el("span", "ctxt", esc(t("row.inherited"))));
+      db.appendChild(il);
+    }
+    d.appendChild(db);
+    bd.appendChild(d);
+  }
+
+  node.appendChild(bd);
+  return node;
+}
+
+function questionNode(r, q) {
+  const w = el("div", "wiz-q");
+  // その他の財産は、内訳（sub）によって where 設問の文言が変わる
+  let labKey = "q." + r.cat + "." + q.id;
+  if (r.cat === "other" && q.id === "where") labKey = "q.other.where." + r.ans.sub;
+  const lab = el("span", "qlab", esc(t(labKey)));
+  w.appendChild(lab);
+
+  const box = el("div", "choices");
+  q.opts.forEach(o => {
+    let txtKey = "q." + r.cat + "." + q.id + "." + o;
+    if (r.cat === "other" && q.id === "where") txtKey = "q.other.where." + o;
+    const on = r.ans[q.id] === o;
+    const lb = el("label", "choice" + (on ? " on" : ""));
+    const inp = el("input");
+    inp.type = "radio"; inp.name = "r" + r.id + "-" + q.id; inp.checked = on;
+    inp.onchange = () => {
+      const before = rowVerdict(r);
+      r.ans[q.id] = o;
+      // 前提が変わった後続の回答をクリア
+      RULES.categories[r.cat].questions.forEach(qq => {
+        if (qq.when && !qq.when(r.ans)) delete r.ans[qq.id];
+      });
+      if (r.cat === "movables" && !rowExcludable(r)) r.excl = false;
+      const after = rowVerdict(r);
+      if (after && after !== before) r._stamp = true;
+      refresh(true);
+    };
+    let inner = esc(t(txtKey));
+    if (has(txtKey + ".n")) inner += '<span class="cnote">' + t(txtKey + ".n") + "</span>";
+    lb.appendChild(inp);
+    lb.appendChild(el("span", "ctxt", inner));
+    box.appendChild(lb);
+  });
+  w.appendChild(box);
+
+  let noteKey = "q." + r.cat + "." + q.id + ".note";
+  if (r.cat === "other" && q.id === "sub") noteKey = "q.other.sub.note";
+  if (r.cat === "other" && q.id === "where") noteKey = null;
+  if (noteKey && has(noteKey)) w.appendChild(el("p", "help", t(noteKey)));
+
+  if (r.cat === "other" && q.id === "sub" && r.ans.sub === "residual") {
+    w.appendChild(el("p", "verdict-note dom", t("q.other.residualNote")));
+  }
+  return w;
+}
+
+/* ============================================================================
+   6. RENDER — panel & result
+   ============================================================================ */
+function renderPanel() {
+  const j = judge();
+  const total = (j.total !== undefined) ? j.total : totalNow();
+  document.getElementById("total-v").textContent = fmt(total);
+
+  const pct = Math.max(0, Math.min(100, (total / (RULES.threshold * 1.5)) * 100));
+  const g = document.getElementById("gauge");
+  document.getElementById("gfill").style.width = pct + "%";
+  g.classList.toggle("over", total > RULES.threshold);
+  document.getElementById("gmark").setAttribute("data-l", t("p.threshold"));
+
+  const badge = document.getElementById("badge");
+  const why = document.getElementById("why");
+  const cls = j.code === "yes" ? "yes" : (j.code === "no" || j.code === "exempt") ? "no" : "na";
+  badge.className = "judg-badge " + cls;
+  badge.textContent = t("j." + j.code);
+  let w = t("j." + j.code + ".why", { n: j.n });
+  if (j.code === "no" && total > RULES.threshold * 0.9 && total <= RULES.threshold) {
+    w += " " + t("j.close", { v: fmt(RULES.threshold - total) });
+  }
+  why.innerHTML = nb(w);
+
+  /* [FIX 5] 期限ステータス */
+  const ck = clockOf(S.year);
+  const dl = ck.dl;
+  const ch = document.getElementById("clock");
+  ch.innerHTML = "";
+  if (j.code === "yes" || j.code === "no" || j.code === "pending") {
+    const tone = ck.state === "past" ? "past" : (ck.state === "soon" || ck.state === "today") ? "soon" : "future";
+    const box = el("div", "clock " + tone);
+    let msg = ck.state === "progress"
+      ? t("c.progress", { y: S.year })
+      : t("c." + ck.state, { d: fmtDate(dl.actual), n: ck.days });
+    if (ck.state === "past" && j.code === "yes") msg += " " + t("c.pastNote");
+    box.innerHTML = nb(msg);
+    ch.appendChild(box);
+  }
+
+  const kv = document.getElementById("kv");
+  kv.innerHTML = "";
+  const items = [[t("kv.year"), yearLabel(S.year)]];
+  if (j.code === "yes") items.push([t("kv.deadline"), fmtDate(dl.actual)]);
+  if (j.cnt !== undefined) items.push([t("kv.rows"), t("kv.rowsUnit", { n: j.cnt })]);
+  if (j.excl) items.push([t("kv.excluded"), t("kv.rowsUnit", { n: j.excl })]);
+  items.forEach(([k, v]) => {
+    const row = el("div", "kv-r");
+    row.appendChild(el("dt", "", esc(k)));
+    row.appendChild(el("dd", "", esc(v)));
+    kv.appendChild(row);
+  });
+
+  renderResult(j, total, ck);
+}
+
+function sec(title, bodyNodes, cls) {
+  const s = el("div", "res-sec" + (cls ? " " + cls : ""));
+  s.appendChild(el("h3", "", esc(title)));
+  bodyNodes.forEach(n => s.appendChild(n));
+  return s;
+}
+function p(html) { return el("p", "", html); }
+function ul(items) {
+  const u = el("ul");
+  items.forEach(i => u.appendChild(el("li", "", i)));
+  return u;
+}
+
+function renderResult(j, total, ck) {
+  const host = document.getElementById("result");
+  host.innerHTML = "";
+  if (j.code !== "yes" && j.code !== "no") return;
+  const dl = ck.dl;
+  // [FIX 5] 期限が過ぎている人に最も必要なのは救済の導線なので、先頭に出す
+  const overdue = (j.code === "yes" && ck.state === "past");
+
+  const card = el("div", "res-card");
+  const hd = el("div", "res-hd");
+  hd.appendChild(el("h2", "", esc(t("r.title." + j.code))));
+  hd.appendChild(el("p", "", esc(t("r.sub." + j.code, { y: S.year, r: reiwa(S.year), d: fmtDate(dl.actual) }))));
+  card.appendChild(hd);
+
+  const bd = el("div", "res-bd");
+
+  /* [FIX 5] 期限経過時は救済の導線を最上段へ繰り上げる */
+  if (overdue) bd.appendChild(sec(t("r.late"), [p(t("r.lateBody"))], "urgent"));
+
+  /* breakdown */
+  if (S.rows.length) {
+    const tb = el("table", "breakdown");
+    tb.innerHTML = "<thead><tr><th>" + esc(t("r.bd.item")) + "</th><th>" + esc(t("r.bd.cat")) +
+      "</th><th>" + esc(t("r.bd.verdict")) + "</th><th>" + esc(t("r.bd.amount")) + "</th></tr></thead>";
+    const tbody = el("tbody");
+    S.rows.forEach(r => {
+      const v = rowVerdict(r);
+      const counts = rowCounts(r);
+      const tr = el("tr", counts ? "" : "dom");
+      const jv = rowJPY(r);
+      tr.innerHTML = "<td>" + esc(r.label || t("r.bd.untitled")) + "</td><td>" + esc(t("cat." + r.cat)) +
+        "</td><td>" + (v ? esc(t("seal." + v)) : "—") + "</td><td>" +
+        (counts && jv !== null ? fmt(jv) : "—") + "</td>";
+      tbody.appendChild(tr);
+    });
+    tb.appendChild(tbody);
+    const tf = el("tfoot");
+    tf.innerHTML = "<tr><td colspan='3'>" + esc(t("r.bd.total")) + "</td><td>" + fmt(total) + "</td></tr>";
+    tb.appendChild(tf);
+    bd.appendChild(sec(t("r.breakdown"), [tb]));
+  }
+
+  if (j.code === "yes") {
+    const dn = [p(t("r.deadlineBody", { d: fmtDate(dl.actual) }))];
+    if (dl.rolled) dn.push(p(t("r.deadlineRoll", { orig: fmtDate(dl.orig), d: fmtDate(dl.actual) })));
+    if (dl.oldRule) dn.push(p(t("r.deadlineOld")));
+    bd.appendChild(sec(t("r.deadline"), dn));
+
+    const dk = ul([t("r.docs.1"), t("r.docs.2"), t("r.docs.3")]);
+    bd.appendChild(sec(t("r.docs"), [dk, el("p", "help", t("r.docs.note"))]));
+  }
+
+  /* [FIX 7] 加算税の説明は色で意味を分ける。軽減は良い知らせなので緑、
+     罰則だけを塗りにして突出させる。全部赤にすると階層が消える。 */
+  bd.appendChild(sec(t("r.penalty"), [
+    el("p", "pen good", t("r.pen.light")),
+    el("p", "pen bad", t("r.pen.heavy")),
+    el("p", "pen bad", t("r.pen.docs")),
+    el("p", "pen crit", t("r.pen.crim"))
+  ]));
+  if (!overdue) bd.appendChild(sec(t("r.late"), [p(t("r.lateBody"))]));
+  bd.appendChild(sec(t("r.valuation"), [
+    p(t("r.valBody")),
+    ul([t("r.val.1"), t("r.val.2"), t("r.val.3"), t("r.val.4")]),
+    el("p", "pen bad", t("r.val.debt"))
+  ]));
+  bd.appendChild(sec(t("r.other"), [p(t("r.otherBody"))]));
+  bd.appendChild(sec(t("r.next"), [ul([t("r.next.1"),
+    '<a href="' + RULES.sources[3].url + '" target="_blank" rel="noopener">' + esc(t("r.next.2")) + "</a>",
+    t("r.next.3")])]));
+
+  card.appendChild(bd);
+  host.appendChild(card);
+
+  const dis = el("div", "disclaimer");
+  dis.innerHTML = "<b>" + esc(t("disc.title")) + "</b>" + t("disc.body");
+  host.appendChild(dis);
+}
+
+/* ============================================================================
+   7. RENDER — static chrome
+   ============================================================================ */
+function renderChrome() {
+  document.documentElement.lang = lang;
+  document.title = t("app.title");
+  document.querySelectorAll("[data-t]").forEach(n => { n.innerHTML = nb(t(n.getAttribute("data-t"))); });
+  document.querySelectorAll(".lang button").forEach(b => {
+    b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false");
+  });
+
+  /* residency */
+  const rh = document.getElementById("residency");
+  rh.innerHTML = "";
+  ["resident", "nonperm", "nonres"].forEach(k => {
+    const on = S.residency === k;
+    const lb = el("label", "choice" + (on ? " on" : ""));
+    const inp = el("input");
+    inp.type = "radio"; inp.name = "residency"; inp.checked = on;
+    inp.onchange = () => { S.residency = k; refresh(true); };
+    lb.appendChild(inp);
+    lb.appendChild(el("span", "ctxt", esc(t("s1.opt." + k)) + '<span class="cnote">' + esc(t("s1.opt." + k + ".n")) + "</span>"));
+    rh.appendChild(lb);
+  });
+
+  /* year */
+  const y = document.getElementById("year");
+  y.innerHTML = "";
+  yearList().forEach(v => {
+    const o = new Option(yearLabel(v), v);
+    if (S.year === v) o.selected = true;
+    y.appendChild(o);
+  });
+
+  document.getElementById("exempt").checked = !!S.exempt;
+  document.getElementById("inherit").checked = !!S.inherit;
+  document.getElementById("exempt-l").classList.toggle("on", !!S.exempt);
+  document.getElementById("inherit-l").classList.toggle("on", !!S.inherit);
+  if (S.exempt) document.getElementById("disc-exempt").open = true;
+  if (S.inherit) document.getElementById("disc-inherit").open = true;
+
+  /* [FIX 4] TTBの説明 */
+  const rhelp = document.getElementById("rate-help");
+  rhelp.innerHTML = "";
+  const rh3 = (k, first) => {
+    const n = el("h3", "", esc(t(k)));
+    n.style.cssText = "font-size:13px;margin:" + (first ? "0" : "14px") + " 0 5px";
+    return n;
+  };
+  rhelp.appendChild(rh3("rate.h1", true));
+  ["rate.p1", "rate.p2", "rate.p3"].forEach(k => rhelp.appendChild(el("p", "help", t(k))));
+  rhelp.appendChild(rh3("rate.h2"));
+  const rl = ul([t("rate.l1"), t("rate.l2"), t("rate.l3")]);
+  rl.className = "help";
+  rl.style.cssText = "padding-left:1.15em;margin:6px 0 0";
+  rhelp.appendChild(rl);
+  rhelp.appendChild(rh3("rate.h3"));
+  ["rate.p4", "rate.p5"].forEach(k => rhelp.appendChild(el("p", "help", t(k))));
+
+  /* sources */
+  const src = document.getElementById("src");
+  src.innerHTML = "";
+  RULES.sources.forEach(s => {
+    src.appendChild(el("li", "", '<a href="' + s.url + '" target="_blank" rel="noopener">' + esc(t(s.key)) + "</a>"));
+  });
+  const ref = document.getElementById("ref");
+  ref.innerHTML = "";
+  RULES.refs.forEach(s => {
+    let html = '<a href="' + s.url + '" target="_blank" rel="noopener">' + esc(t(s.key)) + "</a>";
+    if (has(s.key + ".n")) html += '<br><span class="ref">' + esc(t(s.key + ".n")) + "</span>";
+    ref.appendChild(el("li", "", html));
+  });
+  const f = document.querySelector('[data-t="f.updated"]');
+  f.textContent = t("f.updated", { u: RULES.updated, tb: RULES.basis.taxanswer, fb: RULES.basis.faq });
+
+  const dlst = document.getElementById("ccy-list");
+  dlst.innerHTML = "";
+  RULES.currencies.forEach(c => dlst.appendChild(new Option(c, c)));
+}
+
+/* ============================================================================
+   8. URL STATE (no storage — hash only)
+   ============================================================================ */
+function b64e(s) { return btoa(String.fromCharCode.apply(null, new TextEncoder().encode(s))).replace(/=+$/, ""); }
+function b64d(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(arr);
+}
+function encodeState() {
+  const o = {
+    v: 1, l: lang, y: S.year, r: S.residency, e: S.exempt ? 1 : 0, i: S.inherit ? 1 : 0,
+    rows: S.rows.map(r => ({ c: r.cat, a: r.ans, u: r.ccy, m: r.amt, t: r.rate, s: r.share, x: r.excl ? 1 : 0, h: r.inh ? 1 : 0, n: r.label }))
+  };
+  try { return b64e(JSON.stringify(o)); } catch (e) { return ""; }
+}
+function decodeState(h) {
+  try {
+    const o = JSON.parse(b64d(h));
+    if (!o || o.v !== 1) return false;
+    if (o.l === "en" || o.l === "ja") lang = o.l;
+    S = blankState();
+    if (yearList().indexOf(o.y) >= 0) S.year = o.y;
+    if (["resident", "nonperm", "nonres"].indexOf(o.r) >= 0) S.residency = o.r;
+    S.exempt = !!o.e; S.inherit = !!o.i;
+    (o.rows || []).forEach(x => {
+      const r = newRow();
+      if (RULES.categories[x.c]) r.cat = x.c;
+      r.ans = (x.a && typeof x.a === "object") ? x.a : {};
+      r.ccy = String(x.u || "JPY").toUpperCase().slice(0, 4);
+      r.amt = x.m == null ? "" : String(x.m);
+      r.rate = x.t == null ? "" : String(x.t);
+      r.share = x.s == null ? "" : String(x.s);
+      r.excl = !!x.x; r.inh = !!x.h;
+      r.label = String(x.n || "").slice(0, 120);
+      S.rows.push(r);
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ============================================================================
+   9. WIRE
+   ============================================================================ */
+function refresh(full) { if (full) renderRows(); renderPanel(); }
+function redraw() { renderChrome(); renderRows(); renderPanel(); }
+
+function boot() {
+  S = blankState();
+  const h = location.hash.replace(/^#s=/, "");
+  if (h && location.hash.indexOf("#s=") === 0) decodeState(h);
+  redraw();
+}
+
+document.querySelectorAll(".lang button").forEach(b => {
+  b.onclick = () => { lang = b.dataset.lang; redraw(); };
+});
+document.getElementById("year").onchange = e => { S.year = parseInt(e.target.value, 10); renderPanel(); };
+document.getElementById("exempt").onchange = e => {
+  S.exempt = e.target.checked;
+  document.getElementById("exempt-l").classList.toggle("on", S.exempt);
+  renderPanel();
+};
+document.getElementById("inherit").onchange = e => {
+  S.inherit = e.target.checked;
+  document.getElementById("inherit-l").classList.toggle("on", S.inherit);
+  refresh(true);
+};
+document.getElementById("addrow").onclick = () => { S.rows.push(newRow()); refresh(true); };
+document.getElementById("reset").onclick = () => {
+  S = blankState();
+  if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+  else location.hash = "";
+  document.getElementById("disc-exempt").open = false;
+  document.getElementById("disc-inherit").open = false;
+  redraw();
+};
+document.getElementById("print").onclick = () => window.print();
+document.getElementById("share").onclick = () => {
+  const enc = encodeState();
+  const url = location.origin && location.origin !== "null"
+    ? location.origin + location.pathname + location.search + "#s=" + enc
+    : location.href.split("#")[0] + "#s=" + enc;
+  location.hash = "s=" + enc;
+  const note = document.getElementById("copied");
+  const done = ok => { note.textContent = ok ? t("act.copied") : t("act.copyfail"); setTimeout(() => note.textContent = "", 3200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => done(true), () => done(false));
+  } else {
+    const ta = el("textarea"); ta.value = url;
+    ta.style.cssText = "position:fixed;opacity:0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta); done(ok);
+  }
+};
+document.getElementById("ptoggle").onclick = () => document.getElementById("panel").classList.toggle("expand");
+
+boot();
+</script>
+</body>
+</html>

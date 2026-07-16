@@ -1,0 +1,54 @@
+Copyright (c) 2026 fpyamamoto. All Rights Reserved.
+無断複製・再配布を禁じます
+
+国外財産調書 提出義務チェッカー
+Japan Foreign Asset Report (Kokugai Zaisan Chosho) Obligation Checker
+
+ALL RIGHTS RESERVED — VIEWING PERMITTED, USE NOT PERMITTED
+
+This repository and its contents (the "Software") are made publicly readable
+for the sole purpose of demonstrating the author's work. Publication of the
+source code does not grant any licence.
+
+You MAY:
+  - View and read the source code in this repository.
+
+You MAY NOT, without the prior written permission of the copyright holder:
+  - Use the Software, in whole or in part, for any purpose;
+  - Copy, reproduce, download, or store the Software beyond the temporary
+    copies your browser makes to display it;
+  - Modify, adapt, translate, or create derivative works;
+  - Merge the Software, or any portion of it, into other works;
+  - Publish, distribute, sublicense, sell, rent, lease, or otherwise transfer
+    the Software;
+  - Host, deploy, or make the Software available to third parties;
+  - Remove or alter this notice or the copyright notice in the source files.
+
+No trademark, patent, or other rights are granted.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+NOT TAX ADVICE
+
+The Software is a simplified educational tool. It is not tax, legal, or
+financial advice. The author is not a licensed tax accountant (zeirishi).
+No representation is made as to the accuracy, completeness, or currency of
+the information it presents. Users must verify any result against the primary
+sources published by the National Tax Agency of Japan and consult a licensed
+tax professional or their local tax office before acting.
+
+Contact the copyright holder for permission requests.
+
+---
+
+無断複製・再配布を禁じます。
+本ソースコードは閲覧のみを目的として公開しています。著作権者の事前の書面による許諾なく、複製・改変・配布・公衆送信・販売・使用することを禁じます。
+
+本ツールは制度の理解を助けるための簡易チェックであり、税務上の助言ではありません。作成者は税理士ではなく、内容の正確性・完全性について何らの保証もしません。実際の判断に当たっては、必ず国税庁の一次情報を確認のうえ、税理士または所轄税務署にご相談ください。
