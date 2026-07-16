@@ -233,11 +233,19 @@ select:hover,input:hover{border-color:var(--ink-2)}
   100%{transform:rotate(-9deg) scale(1);opacity:1}
 }
 .seal.anim{animation:stamp .34s cubic-bezier(.2,.9,.3,1.2) both}
+/* 欧文は全角より字数が伸びるため、印の中に収まるよう別に組む。
+   印面は大文字、内訳表では小文字のまま使うので text-transform で処理する。 */
+html[lang="en"] .seal{font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+html[lang="en"] .seal-in small{font-size:6.5px;letter-spacing:.1em}
 .row.is-foreign{box-shadow:inset 4px 0 0 var(--seal)}
 .row.is-domestic{opacity:.94}
 .row.is-domestic .row-bd{background:#FCFDFD}
 @media(prefers-reduced-motion:reduce){.seal.anim{animation:none}}
-@media(max-width:520px){.seal{width:54px;height:54px;font-size:15px;top:40px;right:8px}}
+@media(max-width:520px){
+  .seal{width:54px;height:54px;font-size:15px;top:40px;right:8px}
+  html[lang="en"] .seal{font-size:9.5px}
+  html[lang="en"] .seal-in small{font-size:6px}
+}
 
 .verdict-note{
   font-size:12px;border-radius:2px;padding:7px 10px;line-height:1.65;
@@ -1081,10 +1089,10 @@ en: {
   "v.domestic": "Not a foreign asset. Excluded from the total.",
   "v.excluded": "Not reportable, so excluded from the total.",
   "v.inherited": "Excluded as an inherited foreign asset.",
-  "seal.foreign": "国外",
-  "seal.domestic": "国内",
-  "seal.foreign.n": "REPORT",
-  "seal.domestic.n": "EXEMPT",
+  "seal.foreign": "Abroad",
+  "seal.domestic": "Japan",
+  "seal.foreign.n": "Report",
+  "seal.domestic.n": "Exempt",
 
   "p.lab": "Live judgment",
   "p.title": "Result",
