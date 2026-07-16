@@ -1449,6 +1449,7 @@ function rowNode(r, i) {
 
     const m = el("div", "money");
     const ri = el("input");   // 先に生成する。通貨を変えたとき、行を作り直さずに直接触るため。
+    const bJPY = el("b", "");  // 円換算額の表示先。同上。
 
     /** 円のときはレート欄を塞ぐ。行の再描画を伴わないので入力中でも呼べる。 */
     function syncRate() {
@@ -1457,6 +1458,15 @@ function rowNode(r, i) {
       ri.placeholder = jpy ? "—" : "0.00";
       ri.style.background = jpy ? "#F4F6F7" : "";
       ri.value = jpy ? "" : r.rate;
+    }
+
+    /** 行内の円換算額を更新する。
+        refresh(false) はパネルしか描き直さないため、これを呼ばないと
+        行の中の数字だけが取り残される（通貨を変えるまで「—」のままになる）。 */
+    function syncJPY() {
+      const v = rowJPY(r);
+      bJPY.className = "num" + (v !== null && v < 0 ? " neg" : "");
+      bJPY.textContent = v === null ? "—" : fmt(v) + (lang === "ja" ? " 円" : " JPY");
     }
 
     /* [FIX 2] 通貨は datalist 付きテキストではなく本物の <select>。
@@ -1497,6 +1507,7 @@ function rowNode(r, i) {
         }
         r.ccy = up;
         syncRate();
+        syncJPY();
         refresh(false);                  // 行は作り直さない＝フォーカスを保つ
       };
       c1.appendChild(cf);
@@ -1509,7 +1520,7 @@ function rowNode(r, i) {
     ai.type = "number"; ai.value = r.amt; ai.step = "any"; ai.placeholder = "0";
     if (!neg) ai.min = "0";
     ai.setAttribute("aria-label", t("row.amount"));
-    ai.oninput = () => { r.amt = ai.value; refresh(false); };
+    ai.oninput = () => { r.amt = ai.value; syncJPY(); refresh(false); };
     c2.appendChild(ai);
     m.appendChild(c2);
 
@@ -1517,19 +1528,16 @@ function rowNode(r, i) {
     c3.appendChild(el("span", "mlab", esc(t("row.rate"))));
     ri.type = "number"; ri.step = "any"; ri.min = "0";
     ri.setAttribute("aria-label", t("row.rate"));
-    ri.oninput = () => { r.rate = ri.value; refresh(false); };
+    ri.oninput = () => { r.rate = ri.value; syncJPY(); refresh(false); };
     syncRate();
     c3.appendChild(ri);
     m.appendChild(c3);
     bd.appendChild(m);
 
-    const v = rowJPY(r);
     const out = el("div", "jpy-out");
     out.appendChild(el("span", "", esc(t("row.jpy"))));
-    const b = el("b", v !== null && v < 0 ? "neg" : "");
-    b.className = "num" + (v !== null && v < 0 ? " neg" : "");
-    b.textContent = v === null ? "—" : fmt(v) + (lang === "ja" ? " 円" : " JPY");
-    out.appendChild(b);
+    out.appendChild(bJPY);
+    syncJPY();
     bd.appendChild(out);
 
     /* [FIX 3] 開く前に、誰が開くべきかを示す */
@@ -1545,7 +1553,7 @@ function rowNode(r, i) {
     const si = el("input");
     si.type = "number"; si.min = "0"; si.max = "100"; si.step = "any";
     si.value = r.share; si.placeholder = "100"; si.style.maxWidth = "120px";
-    si.oninput = () => { r.share = si.value; refresh(false); };
+    si.oninput = () => { r.share = si.value; syncJPY(); refresh(false); };
     sf.appendChild(sl); sf.appendChild(si);
     sf.appendChild(el("p", "help", t("row.shareHelp")));
     db.appendChild(sf);
