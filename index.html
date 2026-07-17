@@ -24,7 +24,7 @@
 :root{
   --ink:#16202E;
   --ink-2:#33465C;
-  --muted:#67788A;
+  --muted:#5C6B7A;   /* 全背景で4.5:1以上。#67788A は paper/callout 上で不合格だった */
   --paper:#EDF0F2;
   --card:#FFFFFF;
   --rule:#C9D2D9;
@@ -338,7 +338,7 @@ html[lang="en"] .seal-in small{font-size:6.5px;letter-spacing:.1em}
   .panel.expand .kv,.panel.expand .panel-acts{display:grid}
   .panel-toggle{display:block !important}
 }
-.panel-toggle{display:none;width:100%;border:0;background:transparent;font-size:11.5px;color:var(--muted);cursor:pointer;padding:2px}
+.panel-toggle{display:none;width:100%;border:0;background:transparent;font-size:11.5px;color:var(--ink-2);font-weight:600;cursor:pointer;padding:12px 2px}
 
 /* ============================================================
    RESULT
@@ -757,8 +757,9 @@ ja: {
 
   "rate.h1": "何のレートを使うのか",
   "rate.p1": "その年の12月31日における最終の対顧客直物電信買相場（TTB）で円換算します。同日に相場がなければ、同日前の最も近い日の相場によります。使うのは<b>あなたの取引金融機関が公表した</b>TTBです（通達5-14）。",
-  "rate.p2": "<b>不動産や動産のように金融機関と結びつかない財産でも同じです。</b>ここでいう「取引金融機関」とは、その財産を預けている先ではなく、<b>あなたが取引している金融機関</b>という意味です。海外の不動産でも、ご自身のメインバンクが公表したTTBで換算します。",
+  "rate.p2": "<b>不動産や動産のように金融機関と結びつかない財産でも同じです。</b>ここでいう「取引金融機関」とは、その財産を預けている先ではなく、<b>あなたが取引している金融機関</b>という意味です。海外の不動産でも、ご自身が取引している金融機関が公表したTTBで換算します。",
   "rate.p3": "<b>預貯金だけは例外です。</b>取引金融機関が特定されているので、その預金を<b>預け入れている金融機関</b>が公表した相場を使います。",
+  "rate.p1b": "なお、<b>12月31日は銀行の休業日です</b>（銀行法15①、同施行令5①二）。そのため同日のTTBは公表されず、実際には<b>年内最終営業日</b>の相場を使うことになります。{y}年分なら<b>{d}</b>の相場です。「12月31日の相場が見つからない」と迷う必要はありません。",
   "rate.h2": "どこで調べるか",
   "rate.l1": "<b>最も確実</b> — 取引金融機関の残高証明書や年間取引報告書。または、その金融機関のサイトにある「外国為替相場」「ヒストリカルレート」「過去の相場」といったページ",
   "rate.l2": "<b>目安として</b> — 三菱UFJ銀行の最終公表相場を日別に掲載しているサイト（このページ下部の「参考リンク」）。ご自身の取引金融機関が三菱UFJ銀行でなければ、あくまで概算の目安です",
@@ -815,10 +816,12 @@ ja: {
   "q.movables.place.fr": "国外",
   "q.movables.kind": "種類はどれですか",
   "q.movables.kind.cash": "現金",
+  "q.movables.kind.cash.n": "10万円未満を除く扱いはありません",
   "q.movables.kind.art": "書画骨とう・美術工芸品",
   "q.movables.kind.metal": "貴金属類（金・白金・ダイヤモンド等）",
+  "q.movables.kind.metal.n": "10万円未満を除く扱いはありません。少額でも記載が必要です",
   "q.movables.kind.other": "その他の動産（家具・什器・自動車・船舶等）",
-  "q.movables.kind.note": "指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
+  "q.movables.kind.note": "10万円未満を除く扱いがあるのは「書画骨とう・美術工芸品」と「その他の動産」だけです（規則別表第一(十二)(十四)）。指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
   "q.movables.exclude": "1個または1組の価額が10万円未満（または取得価額100万円未満の家庭用動産）",
   "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ 問27・問28）。",
 
@@ -885,7 +888,7 @@ ja: {
   "j.norows": "未入力",
   "j.norows.why": "財産を1件以上入力すると判定できます。",
   "j.pending": "回答待ち",
-  "j.pending.why": "{n}件の財産で所在の設問が未回答です。未回答のまま合計しても正しい判定になりません。",
+  "j.pending.why": "{n}件の財産で、所在の設問または金額が未入力です。空欄を0円として合計すると誤った判定になるため、判定を保留しています。",
   "j.yes": "提出義務あり",
   "j.yes.why": "12月31日時点の国外財産の合計額が5,000万円を<b>超えて</b>います。翌年の期限までに国外財産調書と合計表を提出してください。",
   "j.no": "提出義務なし",
@@ -1002,7 +1005,7 @@ en: {
   "s1.q.five.yes": "More than five years",
   "s1.q.five.no": "Five years or less",
   "s1.q.five.note": "The total need not be continuous. Exactly five years counts as \"five years or less\" (Income Tax Act 2(1)(iv)).",
-  "s1.v.resident": "You are a resident, and not a non-permanent resident. Whether you must file depends on the total value of your foreign assets.",
+  "s1.v.resident": "You are a resident of Japan other than a non-permanent resident. Whether you must file depends on the total value of your foreign assets.",
   "s1.v.nonperm": "You are a non-permanent resident. Non-permanent residents are excluded from the filing requirement, so <b>no filing is needed whatever the amount</b> (Art. 5(1)).",
   "s1.v.nonres": "You are a non-resident. Only residents file this report, so <b>you have no filing obligation</b> (Art. 5(1)).",
   "s1.help": "Residence status is judged on your position as of 31 December. These questions are the statutory test in Article 2(1)(iii) and (iv) of the Income Tax Act, broken into steps.",
@@ -1030,8 +1033,9 @@ en: {
 
   "rate.h1": "Which rate applies",
   "rate.p1": "Convert at the final TTB (telegraphic transfer buying) rate on 31 December, or the nearest preceding date if there was none. Use the rate published by <b>the bank you deal with</b>.",
-  "rate.p2": "<b>This holds even for assets with no bank attached, such as property.</b> \"The bank you deal with\" means your own bank, not one connected to the asset. Overseas property is converted at your own bank's published TTB.",
+  "rate.p2": "<b>This holds even for assets with no bank attached, such as property.</b> \"The bank you deal with\" means your own bank, not one connected to the asset. Overseas property is converted at the TTB published by a bank you deal with.",
   "rate.p3": "<b>Deposits are the exception.</b> Use the rate published by the bank actually holding the deposit.",
+  "rate.p1b": "Note that <b>banks in Japan are closed on 31 December</b> by law, so no TTB is published that day. In practice you use the rate from the <b>last business day of the year</b> — for {y}, that is <b>{d}</b>. There is no need to hunt for a 31 December rate.",
   "rate.h2": "Where to find it",
   "rate.l1": "<b>Most reliable</b> — your bank's balance certificate or annual statement, or the historical rates page on its website",
   "rate.l2": "<b>As a guide</b> — the daily rates published by MUFG Bank (see \"Reference links\" at the foot of this page). If MUFG is not your bank, treat these as approximate",
@@ -1088,10 +1092,12 @@ en: {
   "q.movables.place.fr": "Outside Japan",
   "q.movables.kind": "What kind is it?",
   "q.movables.kind.cash": "Cash",
+  "q.movables.kind.cash.n": "No de minimis exclusion applies",
   "q.movables.kind.art": "Art, antiques, craft works",
   "q.movables.kind.metal": "Precious metals (gold, platinum, diamonds)",
+  "q.movables.kind.metal.n": "No de minimis exclusion applies — report it however small",
   "q.movables.kind.other": "Other movables (furniture, vehicles, vessels)",
-  "q.movables.kind.note": "Jewellery for personal use is treated as \"other movables\".",
+  "q.movables.kind.note": "The under-JPY-100,000 exclusion applies only to art/antiques and other movables. Jewellery for personal use is treated as \"other movables\".",
   "q.movables.exclude": "Worth less than JPY 100,000 per item or set (or a household item costing under JPY 1 million)",
   "q.movables.excludeNote": "Items under JPY 100,000 per item or set need not be reported and may be left out of the total.",
 
@@ -1158,7 +1164,7 @@ en: {
   "j.norows": "Not started",
   "j.norows.why": "Add at least one asset.",
   "j.pending": "Awaiting answers",
-  "j.pending.why": "{n} asset(s) still have unanswered location questions. The total is incomplete until they are answered.",
+  "j.pending.why": "{n} asset(s) are missing a location answer or a value. Treating a blank as zero would give a wrong result, so the judgment is on hold.",
   "j.yes": "Filing required",
   "j.yes.why": "Your foreign assets at 31 December <b>exceed</b> JPY 50 million. File the report and its summary table by the deadline.",
   "j.no": "No filing required",
@@ -1200,7 +1206,7 @@ en: {
   "r.docs.1": "<b>The foreign asset report</b> — category, type, use, location, quantity and value of each asset",
   "r.docs.2": "<b>The summary table</b> — values totalled by category. It must be attached.",
   "r.docs.3": "Both can be filed through e-Tax.",
-  "r.docs.note": "The location field also needs bank and branch names, debtor names and similar details depending on the category.",
+  "r.docs.note": "The location field takes the country name — a widely used abbreviation is acceptable — and the address, plus bank and branch names, debtor names or similar details depending on the category.",
 
   "r.penalty": "What happens if you don't file",
   "r.pen.light": "<b>Filed on time</b> — if income or inheritance tax is later found to be understated on an asset listed in the report, the penalty tax on that part is <b>reduced by 5%</b>.",
@@ -1344,6 +1350,17 @@ function fmtDate(d) {
 /** 居住者区分。設問が残っていれば null。 */
 function residencyOf() { return RULES.residency.resolve(S.res); }
 
+/** 年内最終営業日。実際にTTBを取れるのはこの日。
+    12月31日は銀行法15条1項・同施行令5条1項二号により毎年必ず銀行休業日なので、
+    同日のTTBは公表されず、通達5-14の「同日前の最も近い日」が常に適用される。
+    12月30日とは限らない（2023・2028年は12/29、2029年は12/28）。
+    12月に国民の祝日はないため、土日だけ遡れば足りる。 */
+function lastBankDay(year) {
+  const d = new Date(year, 11, 30);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+
 function rowVerdict(r) {
   const c = RULES.categories[r.cat];
   if (!c) return null;
@@ -1376,7 +1393,13 @@ function rowCounts(r) {
 /** 設問が未回答の行か */
 function rowPending(r) {
   if (!r.cat) return true;
-  return rowVerdict(r) === null;
+  if (rowVerdict(r) === null) return true;
+  /* 合計に算入される行は、金額（外貨ならTTBも）が揃うまで判定を保留する。
+     これがないと、金額を入れ忘れただけの行が rowJPY() === null で
+     黙って飛ばされ、合計0円のまま「提出義務なし」を出してしまう。
+     判定条件は rowJPY() に集約してあるので、ここでは再実装しない。 */
+  if (rowCounts(r) && rowJPY(r) === null) return true;
+  return false;
 }
 
 function judge() {
@@ -1868,6 +1891,30 @@ function renderResidency() {
   if (rz) host.appendChild(el("div", "verdict-note " + (rz === "resident" ? "for" : "dom"), t("s1.v." + rz)));
 }
 
+/** [FIX 4] TTBの説明。対象年に依存する日付を含むので、年の変更でも描き直す。 */
+function renderRateHelp() {
+  const host = document.getElementById("rate-help");
+  host.innerHTML = "";
+  const h = (k, first) => {
+    const n = el("h3", "", esc(t(k)));
+    n.style.cssText = "font-size:13px;margin:" + (first ? "0" : "14px") + " 0 5px";
+    return n;
+  };
+  host.appendChild(h("rate.h1", true));
+  host.appendChild(el("p", "help", t("rate.p1")));
+  host.appendChild(el("p", "help", t("rate.p1b", { y: S.year, d: fmtDate(lastBankDay(S.year)) })));
+  host.appendChild(el("p", "help", t("rate.p2")));
+  host.appendChild(el("p", "help", t("rate.p3")));
+  host.appendChild(h("rate.h2"));
+  const rl = ul([t("rate.l1"), t("rate.l2"), t("rate.l3")]);
+  rl.className = "help";
+  rl.style.cssText = "padding-left:1.15em;margin:6px 0 0";
+  host.appendChild(rl);
+  host.appendChild(h("rate.h3"));
+  host.appendChild(el("p", "help", t("rate.p4")));
+  host.appendChild(el("p", "help", t("rate.p5")));
+}
+
 function renderChrome() {
   document.documentElement.lang = lang;
   document.title = t("app.title");
@@ -1895,23 +1942,7 @@ function renderChrome() {
   if (S.exempt) document.getElementById("disc-exempt").open = true;
   if (S.inherit) document.getElementById("disc-inherit").open = true;
 
-  /* [FIX 4] TTBの説明 */
-  const rhelp = document.getElementById("rate-help");
-  rhelp.innerHTML = "";
-  const rh3 = (k, first) => {
-    const n = el("h3", "", esc(t(k)));
-    n.style.cssText = "font-size:13px;margin:" + (first ? "0" : "14px") + " 0 5px";
-    return n;
-  };
-  rhelp.appendChild(rh3("rate.h1", true));
-  ["rate.p1", "rate.p2", "rate.p3"].forEach(k => rhelp.appendChild(el("p", "help", t(k))));
-  rhelp.appendChild(rh3("rate.h2"));
-  const rl = ul([t("rate.l1"), t("rate.l2"), t("rate.l3")]);
-  rl.className = "help";
-  rl.style.cssText = "padding-left:1.15em;margin:6px 0 0";
-  rhelp.appendChild(rl);
-  rhelp.appendChild(rh3("rate.h3"));
-  ["rate.p4", "rate.p5"].forEach(k => rhelp.appendChild(el("p", "help", t(k))));
+  renderRateHelp();
 
   /* sources */
   const src = document.getElementById("src");
@@ -1998,7 +2029,11 @@ function boot() {
 document.querySelectorAll(".lang button").forEach(b => {
   b.onclick = () => { lang = b.dataset.lang; redraw(); };
 });
-document.getElementById("year").onchange = e => { S.year = parseInt(e.target.value, 10); renderPanel(); };
+document.getElementById("year").onchange = e => {
+  S.year = parseInt(e.target.value, 10);
+  renderRateHelp();   // 年内最終営業日の表示が対象年に依存する
+  renderPanel();
+};
 document.getElementById("exempt").onchange = e => {
   S.exempt = e.target.checked;
   document.getElementById("exempt-l").classList.toggle("on", S.exempt);
