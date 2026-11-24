@@ -575,8 +575,9 @@ html[lang="en"] .seal-in small{font-size:6.5px;letter-spacing:.1em}
    1. DATA — 制度データ。ロジックから分離。改正時はここだけ差し替える。
    ============================================================================ */
 const RULES = {
-  updated: "2026-07-16",
-  basis: { taxanswer: "令和7年6月1日現在法令等", faq: "令和7年6月版" },
+  updated: "2026-11-24",
+  basis: { taxanswer: "令和8年4月1日現在法令等", faq: "令和8年8月版",
+           taxanswerEn: "law as of 1 April 2026", faqEn: "August 2026 edition" },
   threshold: 50000000,          // 5,000万円「超」（以上ではない）
   // [FIX 5] 年は固定リストではなく現在の年から自動生成する。毎年の手当てが不要。
   yearFloor: 2022,
@@ -586,7 +587,7 @@ const RULES = {
   currencies: ["JPY","USD","EUR","GBP","AUD","NZD","CAD","CHF","SGD","HKD","CNY","KRW","TWD","THB","MYR","PHP","IDR","VND","INR","KHR","LAK","BDT","AED","BRL","MXN","ZAR"],
   sources: [
     { key: "src.nta7456", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/hotei/7456.htm" },
-    { key: "src.faq",     url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/pdf/kokugai_faq_r6.pdf" },
+    { key: "src.faq",     url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/pdf/kokugai_faq.pdf" },
     { key: "src.pamph",   url: "https://www.nta.go.jp/publication/pamph/hotei/kokugai_zaisan/index.htm" },
     { key: "src.form",    url: "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/hotei/2506.htm" },
     { key: "src.etax",    url: "https://www.e-tax.nta.go.jp" }
@@ -623,7 +624,7 @@ const RULES = {
     nonperm:  { live: "yes", jpn: "no", five: "no" },
     nonres:   { live: "no" }
   },
-  /* 財産の区分（名前のついた7区分＋受け皿）と所在判定ウィザード。
+  /* 財産の区分（名前のついた8区分＋受け皿）と所在判定ウィザード。
      verdict = "foreign" | "domestic" | null(未回答)
      根拠：国外送金等調書法5③／令10①②／規12③④／相続税法10①②／FAQ 問6・問22・問23・問36 */
   categories: {
@@ -672,12 +673,18 @@ const RULES = {
         if (a.place === "jp") return "domestic";
         return a.kind ? "foreign" : null;
       },
-      // 別表第一：書画骨とう・その他の動産は1個/1組10万円未満なら記載不要
-      excludable: a => a.place === "fr" && (a.kind === "art" || a.kind === "other")
+      // 別表第一：書画骨とうは1点10万円未満、その他の動産は1個/1組10万円未満なら記載不要。
+      // 合計額から除いてよいのは「その他の動産」だけ（FAQ 問27・問28）。書画骨とうは記載不要でも合計に含める（本人の決定 2026-11-24）。
+      excludable: a => a.place === "fr" && a.kind === "other"
+    },
+    vessel: {
+      // 船舶・航空機は船籍・登録をした機関の所在（FAQ 問6 表2）。船籍のない船舶は「その他の動産」で保管場所（同注1）。
+      questions: [{ id: "registry", opts: ["jp", "fr"] }],
+      resolve: a => a.registry ? (a.registry === "fr" ? "foreign" : "domestic") : null
     },
     other: {
       questions: [
-        { id: "sub", opts: ["deposit_money", "partnership", "trust", "ip", "copyright", "derivative", "residual"] },
+        { id: "sub", opts: ["deposit_money", "partnership", "trust", "ip", "copyright", "derivative", "business", "mining", "fishing", "residual"] },
         { id: "where", opts: ["jp", "fr"], when: a => a.sub && a.sub !== "residual" }
       ],
       resolve: a => {
@@ -688,9 +695,9 @@ const RULES = {
       allowNegative: a => a.sub === "derivative"
     }
   },
-  // [FIX 6] 名前のついた7区分と、受け皿の「その他の財産」を分けて持つ。
-  // 文言の「7区分」はこの配列長から導くので、区分を足しても数字がずれない。
-  namedCats: ["realestate", "deposit", "securities", "loan", "insurance", "crypto", "movables"],
+  // [FIX 6] 名前のついた8区分と、受け皿の「その他の財産」を分けて持つ。
+  // 文言の「8区分」はこの配列長から導くので、区分を足しても数字がずれない。
+  namedCats: ["realestate", "deposit", "securities", "loan", "insurance", "crypto", "movables", "vessel"],
   catchAll: "other"
 };
 RULES.catOrder = RULES.namedCats.concat([RULES.catchAll]);
@@ -775,6 +782,7 @@ ja: {
   "cat.insurance": "保険・年金に関する権利",
   "cat.crypto": "暗号資産・NFT",
   "cat.movables": "現金・動産・貴金属類",
+  "cat.vessel": "船舶・航空機",
   "cat.other": "その他の財産（上記{cats}区分以外）",
 
   "q.realestate.loc": "その不動産はどこにありますか",
@@ -818,12 +826,18 @@ ja: {
   "q.movables.kind.cash": "現金",
   "q.movables.kind.cash.n": "10万円未満を除く扱いはありません",
   "q.movables.kind.art": "書画骨とう・美術工芸品",
+  "q.movables.kind.art.n": "1点10万円未満のものは調書への記載は要りませんが、提出義務の判定では合計額に含めます",
   "q.movables.kind.metal": "貴金属類（金・白金・ダイヤモンド等）",
   "q.movables.kind.metal.n": "10万円未満を除く扱いはありません。少額でも記載が必要です",
-  "q.movables.kind.other": "その他の動産（家具・什器・自動車・船舶等）",
-  "q.movables.kind.note": "10万円未満を除く扱いがあるのは「書画骨とう・美術工芸品」と「その他の動産」だけです（規則別表第一(十二)(十四)）。指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
+  "q.movables.kind.other": "その他の動産（家具・什器・自動車等）",
+  "q.movables.kind.note": "記載を要しない少額の扱いがあるのは「書画骨とう・美術工芸品」（1点10万円未満）と「その他の動産」（1個または1組10万円未満）だけです（規則別表第一(十二)(十四)）。提出義務の判定の合計額から除いてよいのは「その他の動産」だけで、書画骨とう・美術工芸品は家庭にあるものも合計に含めます（FAQ 問27）。船舶・航空機は「船舶・航空機」の区分で入れてください。指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
   "q.movables.exclude": "1個または1組の価額が10万円未満（または取得価額100万円未満の家庭用動産）",
   "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ 問27・問28）。",
+
+  "q.vessel.registry": "船籍（航空機は登録をした機関）はどこですか",
+  "q.vessel.registry.jp": "日本",
+  "q.vessel.registry.fr": "日本以外",
+  "q.vessel.registry.note": "船舶・航空機は、保管している場所ではなく、船籍または航空機の登録をした機関の所在で判定します（FAQ 問6）。日本船籍のヨットを国外に置いていても国外財産ではありません。船籍のない船舶は「現金・動産・貴金属類」の「その他の動産」で、保管している場所を選んでください。",
 
   "q.other.sub": "内訳はどれに当たりますか",
   "q.other.sub.deposit_money": "預託金・委託証拠金その他の保証金",
@@ -832,6 +846,9 @@ ja: {
   "q.other.sub.ip": "特許権・実用新案権・意匠権・商標権等（登録されているもの）",
   "q.other.sub.copyright": "著作権・出版権・著作隣接権（目的物が発行されているもの）",
   "q.other.sub.derivative": "未決済信用取引等・未決済デリバティブ取引に係る権利",
+  "q.other.sub.business": "営業所・事業所に係る営業上・事業上の権利",
+  "q.other.sub.mining": "鉱業権・租鉱権・採石権",
+  "q.other.sub.fishing": "漁業権・入漁権",
   "q.other.sub.residual": "上記のいずれにも当たらない財産",
   "q.other.sub.note": "実際の国外財産調書は規則別表第一の15区分で記載します。このツールは入力を減らすため、名前のついた{cats}区分と、この受け皿にまとめています。",
   "q.other.where.deposit_money": "預託金等を受け入れた営業所・事務所はどこにありますか",
@@ -840,9 +857,12 @@ ja: {
   "q.other.where.ip": "登録をした機関はどこにありますか",
   "q.other.where.copyright": "これを発行する営業所・事業所はどこにありますか",
   "q.other.where.derivative": "取引の相手方である金融商品取引業者等の営業所はどこにありますか",
+  "q.other.where.business": "その営業所・事業所はどこにありますか",
+  "q.other.where.mining": "鉱区・採石場はどこにありますか",
+  "q.other.where.fishing": "漁場に最も近い沿岸はどこにありますか",
   "q.other.where.jp": "国内",
   "q.other.where.fr": "国外",
-  "q.other.residualNote": "これらに当たらない財産は、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
+  "q.other.residualNote": "上の財産はそれぞれの所在（営業所・鉱区・漁場など）で判定します（相続税法10①、FAQ 問6）。これらに当たらない財産だけが、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
   "q.other.derivativeNote": "含み損がある場合は<b>マイナスの見積価額</b>として入力できます。合計額の判定では他の財産と通算します（FAQ 問3）。12月31日に決済したとみなして算出した利益または損失の額を入れてください。",
 
   "row.currency": "通貨",
@@ -922,7 +942,7 @@ ja: {
   "r.bd.untitled": "（名称なし）",
 
   "r.deadline": "期限と提出先",
-  "r.deadlineBody": "<b>{d}</b>までに提出します。提出先は、所得税の確定申告をする方（またはできる方）は所得税の納税地を所轄する税務署長、それ以外の方は住所地（国内に住所がないときは居所地）を所轄する税務署長です。",
+  "r.deadlineBody": "<b>{d}</b>までに提出します。提出先は、その年分の所得税の納税義務がある方は所得税の納税地を所轄する税務署長、それ以外の方は住所地（国内に住所がないときは居所地）を所轄する税務署長です。",
   "r.deadlineRoll": "本来の期限は{orig}ですが、土日に当たるため翌開庁日の{d}になります。",
   "r.deadlineOld": "令和4年分（2022年分）以前の提出期限は翌年3月15日です。6月30日への変更は令和5年分（2023年分）からです。",
 
@@ -968,7 +988,7 @@ ja: {
   "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved.·無断複製・再配布を禁じます",
 
   "src.nta7456": "国税庁 タックスアンサー No.7456 国外財産調書の提出義務",
-  "src.faq": "国税庁 国外財産調書制度（FAQ）令和7年6月版（PDF）",
+  "src.faq": "国税庁 国外財産調書制度（FAQ）令和8年8月版（PDF）",
   "src.pamph": "国税庁 国外財産調書制度に関するお知らせ",
   "src.form": "国税庁 ［手続名］国外財産調書（同合計表）",
   "src.etax": "e-Tax（国税電子申告・納税システム）",
@@ -1051,6 +1071,7 @@ en: {
   "cat.insurance": "Insurance and annuity rights",
   "cat.crypto": "Crypto assets and NFTs",
   "cat.movables": "Cash, movables, precious metals",
+  "cat.vessel": "Vessels and aircraft",
   "cat.other": "Other assets (outside the {cats} above)",
 
   "q.realestate.loc": "Where is the property located?",
@@ -1094,12 +1115,18 @@ en: {
   "q.movables.kind.cash": "Cash",
   "q.movables.kind.cash.n": "No de minimis exclusion applies",
   "q.movables.kind.art": "Art, antiques, craft works",
+  "q.movables.kind.art.n": "Items under JPY 100,000 each need not be listed in the report, but they still count toward the total for the filing test",
   "q.movables.kind.metal": "Precious metals (gold, platinum, diamonds)",
   "q.movables.kind.metal.n": "No de minimis exclusion applies — report it however small",
-  "q.movables.kind.other": "Other movables (furniture, vehicles, vessels)",
-  "q.movables.kind.note": "The under-JPY-100,000 exclusion applies only to art/antiques and other movables. Jewellery for personal use is treated as \"other movables\".",
+  "q.movables.kind.other": "Other movables (furniture, fixtures, vehicles, etc.)",
+  "q.movables.kind.note": "Small items need not be listed only for art/antiques (under JPY 100,000 each) and other movables (under JPY 100,000 per item or set). Only other movables may also be left out of the total for the filing test; art and antiques count even if kept at home (FAQ Q27). Jewellery for personal use is treated as \"other movables\". Enter vessels and aircraft under \"Vessels and aircraft\".",
   "q.movables.exclude": "Worth less than JPY 100,000 per item or set (or a household item costing under JPY 1 million)",
   "q.movables.excludeNote": "Items under JPY 100,000 per item or set need not be reported and may be left out of the total.",
+
+  "q.vessel.registry": "Where is it registered (for aircraft, the registering authority)?",
+  "q.vessel.registry.jp": "Japan",
+  "q.vessel.registry.fr": "Outside Japan",
+  "q.vessel.registry.note": "Vessels and aircraft are located where they are registered, not where they are kept (FAQ Q6). A Japanese-registered yacht kept abroad is not a foreign asset. Enter an unregistered vessel under \"Cash, movables, precious metals\" as \"Other movables\" and choose where it is kept.",
 
   "q.other.sub": "Which of these is it?",
   "q.other.sub.deposit_money": "Deposits, margin, or other security money",
@@ -1108,6 +1135,9 @@ en: {
   "q.other.sub.ip": "Registered patents, utility models, designs, trademarks",
   "q.other.sub.copyright": "Copyright, publication rights, neighbouring rights",
   "q.other.sub.derivative": "Open margin transactions or derivative positions",
+  "q.other.sub.business": "Business rights attached to an office or place of business",
+  "q.other.sub.mining": "Mining, mining-lease or quarrying rights",
+  "q.other.sub.fishing": "Fishing rights or fishing-entry rights",
   "q.other.sub.residual": "None of the above",
   "q.other.sub.note": "The actual report uses 15 statutory categories. This tool groups them into {cats} named categories plus this catch-all to reduce input.",
   "q.other.where.deposit_money": "Where is the office that received the money?",
@@ -1116,9 +1146,12 @@ en: {
   "q.other.where.ip": "Where is the registering authority?",
   "q.other.where.copyright": "Where is the office publishing the work?",
   "q.other.where.derivative": "Where is the counterparty's office?",
+  "q.other.where.business": "Where is that office or place of business?",
+  "q.other.where.mining": "Where is the mining area or quarry?",
+  "q.other.where.fishing": "Where is the coast nearest the fishing ground?",
   "q.other.where.jp": "In Japan",
   "q.other.where.fr": "Outside Japan",
-  "q.other.residualNote": "Anything else is located at the holder's address. As a resident, that means Japan, so it is not reportable.",
+  "q.other.residualNote": "The assets above are located where they are (office, mining area, fishing ground; FAQ Q6). Only anything else is located at the holder's address. As a resident, that means Japan, so it is not reportable.",
   "q.other.derivativeNote": "Unrealised losses may be entered as a <b>negative</b> value and are netted against other assets in the test (FAQ Q3).",
 
   "row.currency": "Currency",
@@ -1198,7 +1231,7 @@ en: {
   "r.bd.untitled": "(untitled)",
 
   "r.deadline": "Deadline and where to file",
-  "r.deadlineBody": "File by <b>{d}</b>. File with the tax office for your income tax place of payment if you file an income tax return, otherwise with the office for your address in Japan.",
+  "r.deadlineBody": "File by <b>{d}</b>. File with the tax office for your income tax place of payment if you are liable for income tax for that year, otherwise with the office for your address in Japan.",
   "r.deadlineRoll": "The statutory date, {orig}, falls on a weekend, so the deadline moves to {d}.",
   "r.deadlineOld": "For 2022 and earlier the deadline was 15 March of the following year. The move to 30 June applies from the 2023 tax year.",
 
@@ -1244,7 +1277,7 @@ en: {
   "f.copyright": "&copy; 2026 fpyamamoto. All Rights Reserved. · Unauthorised reproduction or redistribution is prohibited.",
 
   "src.nta7456": "NTA Tax Answer No.7456 — Obligation to file the foreign asset report",
-  "src.faq": "NTA — Foreign asset report FAQ, June 2025 edition (PDF, Japanese)",
+  "src.faq": "NTA — Foreign asset report FAQ, August 2026 edition (PDF, Japanese)",
   "src.pamph": "NTA — About the foreign asset report regime",
   "src.form": "NTA — Foreign asset report form and summary table",
   "src.etax": "e-Tax",
@@ -1958,7 +1991,8 @@ function renderChrome() {
     ref.appendChild(el("li", "", html));
   });
   const f = document.querySelector('[data-t="f.updated"]');
-  f.textContent = t("f.updated", { u: RULES.updated, tb: RULES.basis.taxanswer, fb: RULES.basis.faq });
+  const en = lang === "en";
+  f.textContent = t("f.updated", { u: RULES.updated, tb: en ? RULES.basis.taxanswerEn : RULES.basis.taxanswer, fb: en ? RULES.basis.faqEn : RULES.basis.faq });
 
   const dlst = document.getElementById("ccy-list");
   dlst.innerHTML = "";
