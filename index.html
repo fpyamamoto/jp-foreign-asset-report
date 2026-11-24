@@ -674,7 +674,7 @@ const RULES = {
         return a.kind ? "foreign" : null;
       },
       // 別表第一：書画骨とうは1点10万円未満、その他の動産は1個/1組10万円未満なら記載不要。
-      // 合計額から除いてよいのは「その他の動産」だけ（FAQ 問27・問28）。書画骨とうは記載不要でも合計に含める（本人の決定 2026-11-24）。
+      // 合計額から除いてよいのは「その他の動産」だけ（FAQ 問27・問28）。書画骨とうは記載不要でも、法5条の「価額の合計額」を素直に読み、合計に含める。
       excludable: a => a.place === "fr" && a.kind === "other"
     },
     vessel: {
@@ -810,7 +810,7 @@ ja: {
   "q.loan.debtor": "債務者（貸付先）の住所・本店はどこですか",
   "q.loan.debtor.jp": "国内",
   "q.loan.debtor.fr": "国外",
-  "q.loan.debtor.note": "貸付金は債務者の住所または本店の所在で判定します（相続税法10①七、FAQ 問26）。債務者が2以上あるときは主たる債務者で判定します。",
+  "q.loan.debtor.note": "貸付金は債務者の住所または本店の所在で判定します（相続税法10①七、FAQ 問26）。債務者が2以上あるときは主たる債務者で判定します。事業の売掛金は、区分によって判定が変わることがあります。税理士に確かめてください。",
 
   "q.insurance.insurer": "保険会社等の本店・主たる事務所はどこにありますか",
   "q.insurance.insurer.jp": "国内",
@@ -822,15 +822,16 @@ ja: {
   "q.movables.place": "その財産はどこで保管していますか",
   "q.movables.place.jp": "国内",
   "q.movables.place.fr": "国外",
+  "q.movables.place.note": "船舶・航空機は保管の場所ではなく船籍・登録の場所で決まります。「船舶・航空機」の区分で入れてください。",
   "q.movables.kind": "種類はどれですか",
   "q.movables.kind.cash": "現金",
   "q.movables.kind.cash.n": "10万円未満を除く扱いはありません",
   "q.movables.kind.art": "書画骨とう・美術工芸品",
-  "q.movables.kind.art.n": "1点10万円未満のものは調書への記載は要りませんが、提出義務の判定では合計額に含めます",
+  "q.movables.kind.art.n": "1点10万円未満のものは調書への記載は要りませんが、このツールでは提出義務の判定の合計額に含めます",
   "q.movables.kind.metal": "貴金属類（金・白金・ダイヤモンド等）",
   "q.movables.kind.metal.n": "10万円未満を除く扱いはありません。少額でも記載が必要です",
   "q.movables.kind.other": "その他の動産（家具・什器・自動車等）",
-  "q.movables.kind.note": "記載を要しない少額の扱いがあるのは「書画骨とう・美術工芸品」（1点10万円未満）と「その他の動産」（1個または1組10万円未満）だけです（規則別表第一(十二)(十四)）。提出義務の判定の合計額から除いてよいのは「その他の動産」だけで、書画骨とう・美術工芸品は家庭にあるものも合計に含めます（FAQ 問27）。船舶・航空機は「船舶・航空機」の区分で入れてください。指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
+  "q.movables.kind.note": "記載を要しない少額の扱いがあるのは「書画骨とう・美術工芸品」（1点10万円未満）と「その他の動産」（1個または1組10万円未満）だけです（規則別表第一(十二)(十四)）。提出義務の判定の合計額から除いてよいとされているのは「その他の動産」だけです（FAQ 問27）。書画骨とう・美術工芸品は家庭にあるものも「その他の動産」に入らないため、このツールでは合計額に含めて判定します。船舶・航空機は「船舶・航空機」の区分で入れてください。指輪・ネックレス等の装身具は、事業用のものを除き「その他の動産」として扱って差し支えありません（通達5-4⑶注書）。",
   "q.movables.exclude": "1個または1組の価額が10万円未満（または取得価額100万円未満の家庭用動産）",
   "q.movables.excludeNote": "1個または1組10万円未満のものは調書への記載を要せず、提出義務判定の合計額にも含めないことができます。取得価額100万円未満の家庭用動産は、12月31日の見積価額が10万円未満のものとして扱って差し支えありません（別表第一、通達5-10⑿注書、FAQ 問27・問28）。",
 
@@ -847,6 +848,7 @@ ja: {
   "q.other.sub.copyright": "著作権・出版権・著作隣接権（目的物が発行されているもの）",
   "q.other.sub.derivative": "未決済信用取引等・未決済デリバティブ取引に係る権利",
   "q.other.sub.business": "営業所・事業所に係る営業上・事業上の権利",
+  "q.other.sub.business.n": "事業の売掛金は、区分によって判定が変わることがあります。税理士に確かめてください",
   "q.other.sub.mining": "鉱業権・租鉱権・採石権",
   "q.other.sub.fishing": "漁業権・入漁権",
   "q.other.sub.residual": "上記のいずれにも当たらない財産",
@@ -862,7 +864,7 @@ ja: {
   "q.other.where.fishing": "漁場に最も近い沿岸はどこにありますか",
   "q.other.where.jp": "国内",
   "q.other.where.fr": "国外",
-  "q.other.residualNote": "上の財産はそれぞれの所在（営業所・鉱区・漁場など）で判定します（相続税法10①、FAQ 問6）。これらに当たらない財産だけが、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
+  "q.other.residualNote": "上の財産はそれぞれの所在（営業所・鉱区・採石場・漁場に最も近い沿岸など）で判定します（相続税法10①、FAQ 問6）。これらに当たらない財産だけが、保有者の住所で所在を判定します（規12③六）。あなたは居住者なので国内財産となり、対象にはなりません。",
   "q.other.derivativeNote": "含み損がある場合は<b>マイナスの見積価額</b>として入力できます。合計額の判定では他の財産と通算します（FAQ 問3）。12月31日に決済したとみなして算出した利益または損失の額を入れてください。",
 
   "row.currency": "通貨",
@@ -1099,7 +1101,7 @@ en: {
   "q.loan.debtor": "Where is the debtor's address or head office?",
   "q.loan.debtor.jp": "In Japan",
   "q.loan.debtor.fr": "Outside Japan",
-  "q.loan.debtor.note": "Judged by the debtor's address or head office (FAQ Q26).",
+  "q.loan.debtor.note": "Judged by the debtor's address or head office (FAQ Q26). Trade receivables of a business may be judged differently depending on the category. Check with a tax accountant.",
 
   "q.insurance.insurer": "Where is the insurer's head office?",
   "q.insurance.insurer.jp": "In Japan",
@@ -1111,15 +1113,16 @@ en: {
   "q.movables.place": "Where is it kept?",
   "q.movables.place.jp": "In Japan",
   "q.movables.place.fr": "Outside Japan",
+  "q.movables.place.note": "Vessels and aircraft are located where they are registered, not where they are kept. Enter them under \"Vessels and aircraft\".",
   "q.movables.kind": "What kind is it?",
   "q.movables.kind.cash": "Cash",
   "q.movables.kind.cash.n": "No de minimis exclusion applies",
   "q.movables.kind.art": "Art, antiques, craft works",
-  "q.movables.kind.art.n": "Items under JPY 100,000 each need not be listed in the report, but they still count toward the total for the filing test",
+  "q.movables.kind.art.n": "Items under JPY 100,000 each need not be listed in the report, but this tool still counts them toward the total for the filing test",
   "q.movables.kind.metal": "Precious metals (gold, platinum, diamonds)",
   "q.movables.kind.metal.n": "No de minimis exclusion applies — report it however small",
   "q.movables.kind.other": "Other movables (furniture, fixtures, vehicles, etc.)",
-  "q.movables.kind.note": "Small items need not be listed only for art/antiques (under JPY 100,000 each) and other movables (under JPY 100,000 per item or set). Only other movables may also be left out of the total for the filing test; art and antiques count even if kept at home (FAQ Q27). Jewellery for personal use is treated as \"other movables\". Enter vessels and aircraft under \"Vessels and aircraft\".",
+  "q.movables.kind.note": "Only two kinds have a small-item exemption from listing: art and antiques (under JPY 100,000 each) and other movables (under JPY 100,000 per item or set). Only other movables may be left out of the total for the filing test (FAQ Q27); art and antiques, even at home, are not \"other movables\", so this tool counts them toward the total. Jewellery for personal use is treated as \"other movables\". Enter vessels and aircraft under \"Vessels and aircraft\".",
   "q.movables.exclude": "Worth less than JPY 100,000 per item or set (or a household item costing under JPY 1 million)",
   "q.movables.excludeNote": "Items under JPY 100,000 per item or set need not be reported and may be left out of the total.",
 
@@ -1136,6 +1139,7 @@ en: {
   "q.other.sub.copyright": "Copyright, publication rights, neighbouring rights",
   "q.other.sub.derivative": "Open margin transactions or derivative positions",
   "q.other.sub.business": "Business rights attached to an office or place of business",
+  "q.other.sub.business.n": "Trade receivables of a business may be judged differently depending on the category. Check with a tax accountant",
   "q.other.sub.mining": "Mining, mining-lease or quarrying rights",
   "q.other.sub.fishing": "Fishing rights or fishing-entry rights",
   "q.other.sub.residual": "None of the above",
@@ -1151,7 +1155,7 @@ en: {
   "q.other.where.fishing": "Where is the coast nearest the fishing ground?",
   "q.other.where.jp": "In Japan",
   "q.other.where.fr": "Outside Japan",
-  "q.other.residualNote": "The assets above are located where they are (office, mining area, fishing ground; FAQ Q6). Only anything else is located at the holder's address. As a resident, that means Japan, so it is not reportable.",
+  "q.other.residualNote": "Each of the assets above is located by its own rule (the office, the mining area, or the coast nearest the fishing ground; FAQ Q6). Only assets that fit none of them are located at the holder's address. As a resident, that means Japan, so it is not reportable.",
   "q.other.derivativeNote": "Unrealised losses may be entered as a <b>negative</b> value and are netted against other assets in the test (FAQ Q3).",
 
   "row.currency": "Currency",

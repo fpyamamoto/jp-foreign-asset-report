@@ -102,7 +102,29 @@ check("English footer uses English basis", /tb: en \? RULES\.basis\.taxanswerEn 
 check("where to file: liable for income tax (ja)", /その年分の所得税の納税義務がある方は/.test(E.I18N.ja["r.deadlineBody"]) && !/確定申告をする方（またはできる方）/.test(E.I18N.ja["r.deadlineBody"]));
 check("where to file (en)", /if you are liable for income tax for that year/.test(E.I18N.en["r.deadlineBody"]));
 check("art note: listed or not, counts toward the total (ja)", /合計額に含めます/.test(E.I18N.ja["q.movables.kind.art.n"]));
-check("movables note: only other movables may be left out (ja)", /合計額から除いてよいのは「その他の動産」だけ/.test(E.I18N.ja["q.movables.kind.note"]));
+// CRO point 3: the FAQ says only "other movables" may be left out; counting art is this tool's reading
+check("movables note: FAQ and this tool's rule are separated (ja)",
+      /合計額から除いてよいとされているのは「その他の動産」だけです（FAQ 問27）。書画骨とう・美術工芸品は家庭にあるものも「その他の動産」に入らないため、このツールでは合計額に含めて判定します。/.test(E.I18N.ja["q.movables.kind.note"]));
+check("movables note (en)", /^Only two kinds have a small-item exemption from listing/.test(E.I18N.en["q.movables.kind.note"]) && /so this tool counts them toward the total/.test(E.I18N.en["q.movables.kind.note"]));
+check("art note says this tool counts it (ja/en)", /このツールでは提出義務の判定の合計額に含めます/.test(E.I18N.ja["q.movables.kind.art.n"]) && /this tool still counts them/.test(E.I18N.en["q.movables.kind.art.n"]));
+// CRO point 1: guidance on the storage question, visible whichever place is chosen
+check("storage question points vessels to their own category (ja)", /船舶・航空機は保管の場所ではなく船籍・登録の場所で決まります。「船舶・航空機」の区分で入れてください。/.test(E.I18N.ja["q.movables.place.note"]));
+check("storage question note (en)", /Vessels and aircraft are located where they are registered/.test(E.I18N.en["q.movables.place.note"]));
+check("the storage question is always asked (no 'when')", !E.RULES.categories.movables.questions.find(q => q.id === "place").when);
+check("question notes are looked up as q.<cat>.<id>.note", /let noteKey = "q\." \+ r\.cat \+ "\." \+ q\.id \+ "\.note";/.test(html));
+// CRO point 2: caution only (the inheritance tax circular could not be confirmed to apply to the report)
+{
+  const c = "事業の売掛金は、区分によって判定が変わることがあります。税理士に確かめてください";
+  check("caution on business rights (ja)", E.I18N.ja["q.other.sub.business.n"] === c);
+  check("caution on loans (ja)", E.I18N.ja["q.loan.debtor.note"].includes(c));
+  check("caution (en)", /may be judged differently depending on the category\. Check with a tax accountant/.test(E.I18N.en["q.other.sub.business.n"]) && /Check with a tax accountant/.test(E.I18N.en["q.loan.debtor.note"]));
+  check("no categorical claim about receivables", !/売掛金はここに入れます/.test(html));
+}
+// CRO points 4, 5, 8
+check("residual note: coast nearest the fishing ground (ja)", /（営業所・鉱区・採石場・漁場に最も近い沿岸など）/.test(E.I18N.ja["q.other.residualNote"]));
+check("residual note (en)", /^Each of the assets above is located by its own rule/.test(E.I18N.en["q.other.residualNote"]) && /Only assets that fit none of them/.test(E.I18N.en["q.other.residualNote"]));
+check("no internal words in the published source", !/本人の決定/.test(html));
+check("README: other movables only", /その他の動産の10万円未満除外に対応（書画骨とうは記載不要でも合計に含める）/.test(readme));
 check("no vessels in other movables", !/船舶/.test(E.I18N.ja["q.movables.kind.other"]) && !/vessel/i.test(E.I18N.en["q.movables.kind.other"]));
 for(const k of ["cat.vessel", "q.vessel.registry", "q.vessel.registry.jp", "q.vessel.registry.fr", "q.vessel.registry.note",
                 "q.other.sub.business", "q.other.sub.mining", "q.other.sub.fishing",
